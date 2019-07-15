@@ -119,6 +119,7 @@ audio_nohay () {
 
 	# aplicar algo de esto?
 	# https://askubuntu.com/questions/1029502/no-audio-on-ubuntu-18-04
+	# https://help.ubuntu.com/community/SoundTroubleshootingProcedure
 }
 
 # -- OK
