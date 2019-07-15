@@ -3,6 +3,7 @@
 report=()
 pkgm=''
 blacklist=()
+distro=''
 
 
 push () {
@@ -26,8 +27,8 @@ function in_array() {
 }
 
 
-# Sistema de paquetes utilizado
-which_pkgm () {	
+# Sistema de paquetes utilizado, distribución, etc
+describe () {	
 	if [[ ! -z $(which apt) ]]; then
 		pkgm='apt'
 		else 
@@ -43,6 +44,8 @@ which_pkgm () {
 				fi	
 			fi	
 	fi 	
+
+	distro=`(cat /etc/*-release | egrep '^ID=' | cut -c4-) 2>/dev/null`
 }
 
 # Drivers en lista negra
@@ -59,11 +62,17 @@ touchpad_nofunciona () {
 	# Parsear xinput buscando "Touchpad"
 	[[ -z $(xinput | grep -i touchpad) ]] && push "Touchad no detectado"
 
-	# Buscar paquete xserver-xorg-input-synaptics
-	#if [[ $pkgm == "apt" ]]; then
-	#	(apt list --installed  | grep xserver-xorg-input-synaptics) >/dev/null 2>&1
-	# 	[[ $? -ne 0 ]] && push "Falta paquete: xserver-xorg-input-synaptics"
-	#fi 
+	# Como hago lo mismo en otras distros / desktops ????
+	if [[ $distro == "linuxmint" && $XDG_CURRENT_DESKTOP ==  "X-Cinnamon" ]]; then
+		(apt list --installed  | grep xserver-xorg-input-synaptics) >/dev/null 2>&1
+	 	if [[ $? -eq 0 ]]; then
+			enabled=$(gsettings get org.cinnamon.settings-daemon.peripherals.touchpad touchpad-enabled)
+			if [[ $enabled == "false" ]]; then
+				echo "Habilitando Touchpad (..)"
+				gsettings set org.cinnamon.settings-daemon.peripherals.touchpad touchpad-enabled true
+			fi
+	 	fi	
+	fi 
 
 	# Parsear la linea GRUB_CMDLINE_LINUX_DEFAULT de /etc/default/grub en búsqueda de acpi=off por ejemplo
 	(grep GRUB_CMDLINE_LINUX_DEFAULT /etc/default/grub | egrep '(acpi=off|acpi_os=!)') >/dev/null 2>&1
@@ -148,7 +157,7 @@ ejecucion_lenta () {
 }
 
 
-which_pkgm ; [[ -z $pkgm ]] && push "Package management desconocido"
+describe ; [[ -z $pkgm ]] && push "Package management desconocido"
 blacklist
 
 # Ejecutados desde un menú o con cualquier otra GUI
