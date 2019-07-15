@@ -39,20 +39,25 @@ touchpad_nofunciona () {
 	 	[[ $? -ne 0 ]] && push "Falta paquete: xserver-xorg-input-synaptics"
 	fi 
 
-	# Parsear la linea GRUB_CMDLINE_LINUX_DEFAULT de /etc/default/grub en búsqueda de acpi=! por ejemplo
+	# Parsear la linea GRUB_CMDLINE_LINUX_DEFAULT de /etc/default/grub en búsqueda de acpi=off por ejemplo
 	(grep GRUB_CMDLINE_LINUX_DEFAULT /etc/default/grub | egrep '(acpi=off|acpi_os=!)') >/dev/null 2>&1
 	[[ $? -eq 0 ]] && push "ACPI fue deshabilitado: $(grep GRUB_CMDLINE_LINUX_DEFAULT /etc/default/grub)"
 }
 
+# Reservado para @Leo 
 wifi_nofunciona () {
 	:
 	# rfkill
 	# lspci / lsusb
 }
 
-bluetooth_nofunciona () { 
-	:
-	# rfkill
+bluetooth_nofunciona () {
+	# Está bloqueado
+	local soft_locked=$(rfkill | grep bluetooth | awk '{ print $4 }')
+	local hard_locked=$(rfkill | grep bluetooth | awk '{ print $5 }')
+
+	[[ "$soft_locked" != "unblocked" ]] && push "Bluetooth bloqueado por soft"
+	[[ "$hard_locked" != "unblocked" ]] && push "Bluetooth bloqueado por hard"
 }
 
 ejecucion_lenta () {
@@ -81,8 +86,15 @@ ejecucion_lenta () {
 
 which_pkgm ; [[ -z $pkgm ]] && push "Package management desconocido"
 
+
+# Ejecutados desde un menú o con cualquier otra GUI
+
 ejecucion_lenta
 touchpad_nofunciona
+bluetooth_nofunciona
+
+
+# Imprimo reporte
 
 for i in "${report[@]}"; do
     echo $i
