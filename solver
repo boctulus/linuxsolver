@@ -60,10 +60,10 @@ touchpad_nofunciona () {
 	[[ -z $(xinput | grep -i touchpad) ]] && push "Touchad no detectado"
 
 	# Buscar paquete xserver-xorg-input-synaptics
-	if [[ $pkgm == "apt" ]]; then
-		(apt list --installed  | grep xserver-xorg-input-synaptics) >/dev/null 2>&1
-	 	[[ $? -ne 0 ]] && push "Falta paquete: xserver-xorg-input-synaptics"
-	fi 
+	#if [[ $pkgm == "apt" ]]; then
+	#	(apt list --installed  | grep xserver-xorg-input-synaptics) >/dev/null 2>&1
+	# 	[[ $? -ne 0 ]] && push "Falta paquete: xserver-xorg-input-synaptics"
+	#fi 
 
 	# Parsear la linea GRUB_CMDLINE_LINUX_DEFAULT de /etc/default/grub en búsqueda de acpi=off por ejemplo
 	(grep GRUB_CMDLINE_LINUX_DEFAULT /etc/default/grub | egrep '(acpi=off|acpi_os=!)') >/dev/null 2>&1
@@ -115,11 +115,12 @@ audio_nohay () {
 	# muted?
 	muted=$(pacmd list-sinks | awk '/muted/ { print $2 }')
 	(grep yes <<< $(echo $muted)) >/dev/null
-	[[ $? -eq 0 ]] && echo "Hay un dispositivo de audio 'silenciado'"
+	[[ $? -eq 0 ]] && echo "Audio: hay un dispositivo 'silenciado'"
 
 	# aplicar algo de esto?
 	# https://askubuntu.com/questions/1029502/no-audio-on-ubuntu-18-04
 	# https://help.ubuntu.com/community/SoundTroubleshootingProcedure
+	# https://zillowtech.com/ubuntu-no-sound.html
 }
 
 # -- OK
