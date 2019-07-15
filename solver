@@ -2,11 +2,31 @@
 
 report=()
 pkgm=''
+blacklist=()
+
 
 push () {
 	report=("${report[@]}" "$1")
 }
 
+function in_array() {
+  local x
+
+  ENTRY=$1
+  shift 1
+  ARRAY=( "$@" )
+  [ -z "${ARRAY}" ] && return 1
+  [ -z "${ENTRY}" ] && return 1
+  
+  for x in ${ARRAY[@]}; do
+    [ "${x}" == "${ENTRY}" ] && return 0
+  done
+  
+  return 1
+}
+
+
+# Sistema de paquetes utilizado
 which_pkgm () {	
 	if [[ ! -z $(which apt) ]]; then
 		pkgm='apt'
@@ -25,10 +45,16 @@ which_pkgm () {
 	fi 	
 }
 
+# Drivers en lista negra
+blacklist () {
+	blacklist=$(cat /etc/modprobe.d/*blacklist* | egrep '^blacklist ' | cut -d' ' -f2)
+}
+
 #
 ### Solvers
 #
 
+# --OK
 touchpad_nofunciona () {
 	# Parsear xinput buscando "Touchpad"
 	[[ -z $(xinput | grep -i touchpad) ]] && push "Touchad no detectado"
@@ -59,15 +85,39 @@ wifi_nofunciona () {
 	#
 }
 
+# -- OK
 bluetooth_nofunciona () {
 	# Está bloqueado
 	local soft_locked=$(rfkill | grep bluetooth | awk '{ print $4 }')
 	local hard_locked=$(rfkill | grep bluetooth | awk '{ print $5 }')
 
-	[[ "$soft_locked" != "unblocked" ]] && push "Bluetooth bloqueado por soft"
-	[[ "$hard_locked" != "unblocked" ]] && push "Bluetooth bloqueado por hard"
+	[[ "$soft_locked" != "unblocked" ]] && push "Hay un bluetooth bloqueado por soft"
+	[[ "$hard_locked" != "unblocked" ]] && push "Hay un bluetooth bloqueado por hard"
 }
 
+audio_nohay () {
+	local hardware=$(lspci -v | grep -i -A7 audio  | grep -i 'Subsystem' | cut -d':' -f2)
+	local driver_en_uso=$(lspci -v | grep -i -A7 audio  | grep 'Kernel driver in use' | cut -d':' -f2)
+	local drivers=$(lspci -v | grep -i -A7 audio  | grep 'Kernel modules' | cut -d':' -f2)
+
+	# No hay driver en uso?
+	if [[ -z "$driver_en_uso" ]]; then
+		push "Audio: no hay driver (drivers disponibles: $drivers, device: $hardware)"
+
+		# Verifico que ningún driver esté blacklisted
+		for driver in "${drivers[@]}"; do
+			in_array "snd_hda_intel" "${blacklist[@]}"
+			[[ $? -eq 0 ]] && push "Audio: $driver está en blacklist"
+		done	
+	fi
+
+	# muted?
+	muted=$(pacmd list-sinks | awk '/muted/ { print $2 }')
+	(grep yes <<< $(echo $muted)) >/dev/null
+	[[ $? -eq 0 ]] && echo "Hay un dispositivo de audio 'silenciado'"
+}
+
+# -- OK
 ejecucion_lenta () {
 	local mem_ava=$(cat /proc/meminfo | grep MemAvailable | awk '{print $2}')	
 
@@ -93,13 +143,14 @@ ejecucion_lenta () {
 
 
 which_pkgm ; [[ -z $pkgm ]] && push "Package management desconocido"
-
+blacklist
 
 # Ejecutados desde un menú o con cualquier otra GUI
 
 ejecucion_lenta
 touchpad_nofunciona
 bluetooth_nofunciona
+audio_nohay
 
 
 # Imprimo reporte
