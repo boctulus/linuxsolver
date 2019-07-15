@@ -1,0 +1,90 @@
+#!/bin/bash
+
+report=()
+pkgm=''
+
+push () {
+	report=("${report[@]}" "$1")
+}
+
+which_pkgm () {	
+	if [[ ! -z $(which apt) ]]; then
+		pkgm='apt'
+		else 
+			if [[ ! -z $(which dnf) ]]; then
+				pkgm='dnf'	
+			else
+				if [[ ! -z $(which pacman) ]]; then
+					pkgm='pacman'
+				else
+					if [[ ! -z $(which emerge) ]]; then
+						pkgm='emerge'	
+					fi	
+				fi	
+			fi	
+	fi 	
+}
+
+#
+### Solvers
+#
+
+touchpad_nofunciona () {
+	# Parsear xinput buscando "Touchpad"
+	[[ -z $(xinput | grep -i touchpad) ]] && push "Touchad no detectado"
+
+	# Buscar paquete xserver-xorg-input-synaptics
+	if [[ $pkgm == "apt" ]]; then
+		(apt list --installed  | grep xserver-xorg-input-synaptics) >/dev/null 2>&1
+	 	[[ $? -ne 0 ]] && push "Falta paquete: xserver-xorg-input-synaptics"
+	fi 
+
+	# Parsear la linea GRUB_CMDLINE_LINUX_DEFAULT de /etc/default/grub en búsqueda de acpi=! por ejemplo
+	(grep GRUB_CMDLINE_LINUX_DEFAULT /etc/default/grub | egrep '(acpi=off|acpi_os=!)') >/dev/null 2>&1
+	[[ $? -eq 0 ]] && push "ACPI fue deshabilitado: $(grep GRUB_CMDLINE_LINUX_DEFAULT /etc/default/grub)"
+}
+
+wifi_nofunciona () {
+	:
+	# rfkill
+	# lspci / lsusb
+}
+
+bluetooth_nofunciona () { 
+	:
+	# rfkill
+}
+
+ejecucion_lenta () {
+	local mem_ava=$(cat /proc/meminfo | grep MemAvailable | awk '{print $2}')	
+
+	local free_space_root=$(df -h | awk '
+		$6=="/" {
+			print $4
+		}
+	')
+
+	local free_space_root_h=$free_space_root
+
+	free_space_root=${free_space_root/K/000}
+	free_space_root=${free_space_root/M/000000}
+	free_space_root=${free_space_root/G/000000000}
+	free_space_root=${free_space_root/T/000000000000}
+
+	# menos de 4Gb libres en /
+	[[ $free_space_root -le 4000000000 ]] && push "Poco espacio ($free_space_root_h) en partición root"
+	
+	# Menos de 150Kb libres de RAM
+	[[ $mem_ava -le 150000 ]] && push "Memoria disponible insuficiente ($mem_ava kb)"
+}
+
+
+which_pkgm
+[[ -z $pkgm ]] && push "Package management desconocido"
+
+ejecucion_lenta
+touchpad_nofunciona
+
+for i in "${report[@]}"; do
+    echo $i
+done
