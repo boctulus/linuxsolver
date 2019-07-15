@@ -46,9 +46,17 @@ touchpad_nofunciona () {
 
 # Reservado para @Leo 
 wifi_nofunciona () {
-	:
+	wireless_interfaces=$(iw dev | grep -i Interface | grep -o ' w[a-z0-9]*')
+	wireless_interfaces_connected=$(cat /proc/net/wireless | awk '/:/  {print $1}' | cut -d':' -f1)
+
 	# rfkill
+	#ID TYPE      DEVICE      SOFT      HARD
+	#0 wlan      phy0   unblocked unblocked
+	#62 bluetooth hci0   unblocked unblocked
+	#65 wlan      phy4   unblocked unblocked
+
 	# lspci / lsusb
+	#
 }
 
 bluetooth_nofunciona () {
