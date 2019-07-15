@@ -95,6 +95,7 @@ bluetooth_nofunciona () {
 	[[ "$hard_locked" != "unblocked" ]] && push "Hay un bluetooth bloqueado por hard"
 }
 
+# --OK
 audio_nohay () {
 	local hardware=$(lspci -v | grep -i -A7 audio  | grep -i 'Subsystem' | cut -d':' -f2)
 	local driver_en_uso=$(lspci -v | grep -i -A7 audio  | grep 'Kernel driver in use' | cut -d':' -f2)
@@ -115,6 +116,9 @@ audio_nohay () {
 	muted=$(pacmd list-sinks | awk '/muted/ { print $2 }')
 	(grep yes <<< $(echo $muted)) >/dev/null
 	[[ $? -eq 0 ]] && echo "Hay un dispositivo de audio 'silenciado'"
+
+	# aplicar algo de esto?
+	# https://askubuntu.com/questions/1029502/no-audio-on-ubuntu-18-04
 }
 
 # -- OK
