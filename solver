@@ -79,8 +79,7 @@ ejecucion_lenta () {
 }
 
 
-which_pkgm
-[[ -z $pkgm ]] && push "Package management desconocido"
+which_pkgm ; [[ -z $pkgm ]] && push "Package management desconocido"
 
 ejecucion_lenta
 touchpad_nofunciona
