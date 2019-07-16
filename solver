@@ -104,19 +104,118 @@ touchpad_nofunciona () {
 	[[ $? -eq 0 ]] && push "ACPI fue deshabilitado: $(grep GRUB_CMDLINE_LINUX_DEFAULT /etc/default/grub)"
 }
 
-# Reservado para @Leo 
+# Detectar errores de ethernet
+ethernet_nofunciona () {
+	local NUM_NET_DEVICE=1
+	local SED_P="p"
+	local SED_NU="sed -n $NUM_NET_DEVICE$SED_P"
+	local NO_DEVICE=1
+
+	# Detectar dispositivos
+	while [ $( sudo dmesg | grep eth0 | grep "renamed from" | awk '{print $5}' | $SED_NU ) ]; do
+		NO_DEVICE=0
+
+		# Obtiene dispositivo ethernet
+		MY_NEW_DEVICE=$( sudo dmesg | grep eth0 | grep "renamed from" | awk '{print $5}' | $SED_NU )
+		MY_NEW_DEVICE=${MY_NEW_DEVICE:0:-1}
+
+		# Conocer si el dispositivo esta levantado o cable conectado
+		if [[ -z $(sudo ip address show $MY_NEW_DEVICE | grep "UP") || -z $(sudo ip address show $MY_NEW_DEVICE | grep "LOWER_UP") ]]; then
+			push "Dispositivo $MY_NEW_DEVICE esta desactivado o no posee el cable conectado"
+		else
+			# Comprobar si posee IP
+			if  [[ -z $( ip address show $MY_NEW_DEVICE |grep -i "inet" | sed -n 1p ) ]]; then
+				push "Dispositivo ethernet $MY_NEW_DEVICE no posee dirección IP"
+			fi
+			
+			# obtener ip local			
+			if  [[ $(hostname --help | grep "all-ip-address") ]]; then
+				MY_IP=$(hostname -I |awk '{print $1}')
+			else
+				MY_IP=$(hostname -i |awk '{print $1}')
+			fi
+
+			# Comprobar mascara de red
+			if  [[ -z $(ip addr |grep $MY_IP |awk '{print $2}' FS="/" |awk '{print $1}') ]]; then
+				push "Dispositivo ethernet $MY_NEW_DEVICE no posee máscara de red"
+			fi
+
+			# Comprobar puerta de enlace
+			if  [[ -z $(ip route show |grep default | awk '{print $3}') ]]; then
+				push "Dispositivo ethernet $MY_NEW_DEVICE no posee puerta de enlace"
+			fi
+
+			# Comprobar DNS
+			if  [[ -z $(cat /etc/resolv.conf | grep nameserver -m 1 | awk '{print $2}') ]]; then
+				push "No se encontraron servidores DNS en '/etc/resolv.conf' "
+			fi
+		fi
+		
+		let NUM_NET_DEVICE=$NUM_NET_DEVICE+1
+		SED_NU="sed -n $NUM_NET_DEVICE$SED_P"
+		
+	done
+
+	if [[ NO_DEVICE -eq 1 ]]; then
+		push "No se encontro dispositivo ethernet"
+	fi
+}
+
+# Detectar errores de wifi
 wifi_nofunciona () {
-	wireless_interfaces=$(iw dev | grep -i Interface | grep -o ' w[a-z0-9]*')
-	wireless_interfaces_connected=$(cat /proc/net/wireless | awk '/:/  {print $1}' | cut -d':' -f1)
+	local NUM_NET_DEVICE=1
+	local SED_P="p"
+	local SED_NU="sed -n $NUM_NET_DEVICE$SED_P"
+	local NO_DEVICE=1
 
-	# rfkill
-	#ID TYPE      DEVICE      SOFT      HARD
-	#0 wlan      phy0   unblocked unblocked
-	#62 bluetooth hci0   unblocked unblocked
-	#65 wlan      phy4   unblocked unblocked
+	# Detectar dispositivos
+	while [ $( sudo dmesg | grep wlan0 | grep "renamed from" | awk '{print $5}' | $SED_NU ) ]; do
+		NO_DEVICE=0
 
-	# lspci / lsusb
-	#
+		# Obtiene dispositivo wireless
+		MY_NEW_DEVICE=$( sudo dmesg | grep wlan0 | grep "renamed from" | awk '{print $5}' | $SED_NU )
+		MY_NEW_DEVICE=${MY_NEW_DEVICE:0:-1}
+
+		# Conocer si el dispositivo esta levantado
+		if [[ -z $(sudo ip address show $MY_NEW_DEVICE | grep "UP") ]]; then
+			push "Dispositivo $MY_NEW_DEVICE esta desactivado"
+		else
+			# Comprobar si posee IP
+			if  [[ -z $( ip address show $MY_NEW_DEVICE |grep -i "inet" | sed -n 1p ) ]]; then
+				push "Dispositivo ethernet $MY_NEW_DEVICE no posee dirección IP"
+			fi
+
+			# obtener ip local			
+			if  [[ $(hostname --help | grep "all-ip-address") ]]; then
+				MY_IP=$(hostname -I |awk '{print $1}')
+			else
+				MY_IP=$(hostname -i |awk '{print $1}')
+			fi
+
+			# Comprobar mascara de red
+			if  [[ -z $(ip addr |grep $MY_IP |awk '{print $2}' FS="/" |awk '{print $1}') ]]; then
+				push "Dispositivo ethernet $MY_NEW_DEVICE no posee máscara de red"
+			fi
+
+			# Comprobar puerta de enlace
+			if  [[ -z $(ip route show |grep default | awk '{print $3}') ]]; then
+				push "Dispositivo ethernet $MY_NEW_DEVICE no posee puerta de enlace"
+			fi
+
+			# Comprobar DNS
+			if  [[ -z $(cat /etc/resolv.conf | grep nameserver -m 1 | awk '{print $2}') ]]; then
+				push "No se encontraron servidores DNS en '/etc/resolv.conf' "
+			fi
+		fi
+		
+		let NUM_NET_DEVICE=$NUM_NET_DEVICE+1
+		SED_NU="sed -n $NUM_NET_DEVICE$SED_P"
+		
+	done
+
+	if [[ NO_DEVICE -eq 1 ]]; then
+		push "No se encontro dispositivo wifi"
+	fi
 }
 
 # -- OK
@@ -194,6 +293,8 @@ blacklist
 
 ejecucion_lenta
 touchpad_nofunciona
+ethernet_nofunciona
+wifi_nofunciona
 bluetooth_nofunciona
 audio_nohay
 
