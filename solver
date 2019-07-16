@@ -201,8 +201,8 @@ wifi_nofunciona () {
 		# DEVICE-REPEAT
 		if [ ! $NEW == $DEVICE ]; then
 			# Conocer si el dispositivo esta levantado
-			if [[ -z $(sudo ip address show $MY_NEW_DEVICE | grep "UP") ]]; then
-				push "Dispositivo $MY_NEW_DEVICE esta desactivado"
+			if [[ -z $(sudo ip address show $MY_NEW_DEVICE | grep "UP") || -z $(sudo ip address show $MY_NEW_DEVICE | grep "LOWER_UP") ]]; then
+				push "Dispositivo $MY_NEW_DEVICE esta desactivado o sin conexión"
 			else
 				# Comprobar si posee IP
 				if  [[ -z $( ip address show $MY_NEW_DEVICE |grep -i "inet" | sed -n 1p ) ]]; then
