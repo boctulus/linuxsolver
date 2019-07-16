@@ -62,17 +62,42 @@ touchpad_nofunciona () {
 	# Parsear xinput buscando "Touchpad"
 	[[ -z $(xinput | grep -i touchpad) ]] && push "Touchad no detectado"
 
-	# Como hago lo mismo en otras distros / desktops ????
-	if [[ $distro == "linuxmint" && $XDG_CURRENT_DESKTOP ==  "X-Cinnamon" ]]; then
-		(apt list --installed  | grep xserver-xorg-input-synaptics) >/dev/null 2>&1
-	 	if [[ $? -eq 0 ]]; then
-			enabled=$(gsettings get org.cinnamon.settings-daemon.peripherals.touchpad touchpad-enabled)
-			if [[ $enabled == "false" ]]; then
-				echo "Habilitando Touchpad (..)"
-				gsettings set org.cinnamon.settings-daemon.peripherals.touchpad touchpad-enabled true
-			fi
-	 	fi	
+	if [[ $XDG_CURRENT_DESKTOP ==  "X-Cinnamon" ]]; then
+		enabled=$(gsettings get org.cinnamon.settings-daemon.peripherals.touchpad touchpad-enabled)
+
+		if [[ $enabled == "false" ]]; then
+			echo "Habilitando Touchpad (..)"
+			gsettings set org.cinnamon.settings-daemon.peripherals.touchpad touchpad-enabled true
+		fi
+
+		# para Gnome
+		# gsettings set org.gnome.desktop.peripherals.touchpad send-events enabled
+
+	else
+		enabled=$(xinput list-props $id | grep Device\ Enabled | awk '{print $4}')
+
+		echo "Intentando habilitar Touchpad (..)"
+
+		if [[ $enabled -eq 0 ]]; then
+			id=`xinput list | grep -i touchpad | awk '{ print $6 }' | sed 's/id=//'`
+			xinput enable "$id"
+			xinput set-prop "$id" "Device Enabled" 1
+		fi
+
+		if [[ $pkgm == "apt" ]]; then
+			(apt list --installed  | grep xserver-xorg-input-synaptics) >/dev/null 2>&1
+			if [[ $? -eq 0 ]]; then
+				synclient TouchpadOff=0
+			fi	
+		fi	
 	fi 
+
+	# Vuelvo a chequear ...
+	id=`xinput list | grep -i touchpad | awk '{ print $6 }' | sed 's/id=//'`
+	enabled=$(xinput list-props $id | grep Device\ Enabled | awk '{print $4}')
+	if [[ $enabled -eq 0 ]]; then
+		push "Touchpad deshabilitado"
+	fi	
 
 	# Parsear la linea GRUB_CMDLINE_LINUX_DEFAULT de /etc/default/grub en búsqueda de acpi=off por ejemplo
 	(grep GRUB_CMDLINE_LINUX_DEFAULT /etc/default/grub | egrep '(acpi=off|acpi_os=!)') >/dev/null 2>&1
@@ -124,7 +149,12 @@ audio_nohay () {
 	# muted?
 	muted=$(pacmd list-sinks | awk '/muted/ { print $2 }')
 	(grep yes <<< $(echo $muted)) >/dev/null
-	[[ $? -eq 0 ]] && echo "Audio: hay un dispositivo 'silenciado'"
+	if [[ $? -eq 0 ]]; then
+		echo "Audio: hay un dispositivo 'silenciado', solucionando (..)"
+		amixer sset Master unmute >/dev/null
+		amixer sset Speaker unmute >/dev/null
+		amixer sset Headphone unmute >/dev/null
+	fi	
 
 	# aplicar algo de esto?
 	# https://askubuntu.com/questions/1029502/no-audio-on-ubuntu-18-04
