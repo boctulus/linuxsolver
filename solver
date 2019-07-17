@@ -180,7 +180,7 @@ ethernet () {
 	local downs=0
 	for interface in $interfaces; do
 		#echo $interface
-		if [[ ! -z $(sudo ip address show $interface | grep "DOWN") ]]; then
+		if [[ -z $(sudo ip address show $interface | grep "UP>") ]]; then
 			echo "Interfaz $interface está apagada, encendiendo (..)"
 			(( downs++ ))
 			sudo ip link set "$interfaz" up
@@ -230,7 +230,7 @@ blacklist
 performance
 touchpad
 ethernet
-wireless
+#wireless
 bluetooth
 sound
 
@@ -241,5 +241,3 @@ for i in "${report[@]}"; do
     echo $i
 done
 
-# Modificación de prueba
-echo "Hola!"
