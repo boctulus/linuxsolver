@@ -243,7 +243,7 @@ ethernet () {
 		push "No se encontro dispositivo ethernet"
 	fi
 }
-
+ 
 # Detectar errores de wifi
 wireless () {
 	interfaces=$(cat /proc/net/dev | grep -o w[a-z0-9]*: | cut -d':' -f1)
@@ -283,7 +283,7 @@ bluetooth
 sound
 
 
-# Imprimo reporte
+# Imprimo reporte!
 
 for i in "${report[@]}"; do
     echo $i
