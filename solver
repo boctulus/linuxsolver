@@ -58,7 +58,7 @@ blacklist () {
 #
 
 # --OK
-touchpad_nofunciona () {
+touchpad () {
 	# Parsear xinput buscando "Touchpad"
 	[[ -z $(xinput | grep -i touchpad) ]] && push "Touchad no detectado"
 
@@ -104,8 +104,77 @@ touchpad_nofunciona () {
 	[[ $? -eq 0 ]] && push "ACPI fue deshabilitado: $(grep GRUB_CMDLINE_LINUX_DEFAULT /etc/default/grub)"
 }
 
+
+# -- OK
+bluetooth () {
+	# Está bloqueado
+	local soft_locked=$(rfkill | grep bluetooth | awk '{ print $4 }')
+	local hard_locked=$(rfkill | grep bluetooth | awk '{ print $5 }')
+
+	[[ "$soft_locked" != "unblocked" ]] && push "Hay un bluetooth bloqueado por soft"
+	[[ "$hard_locked" != "unblocked" ]] && push "Hay un bluetooth bloqueado por hard"
+}
+
+# --OK
+sound () {
+	local hardware=$(lspci -v | grep -i -A7 audio  | grep -i 'Subsystem' | cut -d':' -f2)
+	local driver_en_uso=$(lspci -v | grep -i -A7 audio  | grep 'Kernel driver in use' | cut -d':' -f2)
+	local drivers=$(lspci -v | grep -i -A7 audio  | grep 'Kernel modules' | cut -d':' -f2)
+
+	# No hay driver en uso?
+	if [[ -z "$driver_en_uso" ]]; then
+		push "Audio: no hay driver (drivers disponibles: $drivers, device: $hardware)"
+
+		# Verifico que ningún driver esté blacklisted
+		for driver in "${drivers[@]}"; do
+			in_array "$driver" "${blacklist[@]}"
+			[[ $? -eq 0 ]] && push "Audio: $driver está en blacklist"
+		done	
+	fi
+
+	# muted?
+	muted=$(pacmd list-sinks | awk '/muted/ { print $2 }')
+	(grep yes <<< $(echo $muted)) >/dev/null
+	if [[ $? -eq 0 ]]; then
+		echo "Audio: hay un dispositivo 'silenciado', solucionando (..)"
+		amixer sset Master unmute >/dev/null
+		amixer sset Speaker unmute >/dev/null
+		amixer sset Headphone unmute >/dev/null
+	fi	
+
+	# aplicar algo de esto?
+	# https://askubuntu.com/questions/1029502/no-audio-on-ubuntu-18-04
+	# https://help.ubuntu.com/community/SoundTroubleshootingProcedure
+	# https://zillowtech.com/ubuntu-no-sound.html
+}
+
+# -- OK
+performance () {
+	local mem_ava=$(cat /proc/meminfo | grep MemAvailable | awk '{print $2}')	
+
+	local free_space_root=$(df -h | awk '
+		$6=="/" {
+			print $4
+		}
+	')
+
+	local free_space_root_h=$free_space_root
+
+	free_space_root=${free_space_root/K/000}
+	free_space_root=${free_space_root/M/000000}
+	free_space_root=${free_space_root/G/000000000}
+	free_space_root=${free_space_root/T/000000000000}
+
+	# menos de 4Gb libres en /
+	[[ $free_space_root -le 4000000000 ]] && push "Poco espacio ($free_space_root_h) en partición root"
+	
+	# Menos de 150Kb libres de RAM
+	[[ $mem_ava -le 150000 ]] && push "Memoria disponible insuficiente ($mem_ava kb)"
+}
+
+
 # Detectar errores de ethernet
-ethernet_nofunciona () {
+ethernet () {
 	local NUM_NET_DEVICE=1
 	local SED_P="p"
 	local SED_NU="sed -n $NUM_NET_DEVICE$SED_P"
@@ -121,14 +190,14 @@ ethernet_nofunciona () {
 		MY_NEW_DEVICE=$( sudo dmesg | grep eth0 | grep "renamed from" | awk '{print $5}' | $SED_NU )
 		MY_NEW_DEVICE=${MY_NEW_DEVICE:0:-1}
 		# Re-detectar dispositivo
-		if [ $MY_NEW_DEVICE == "rename" ]; then
+		if [[ MY_NEW_DEVICE=="rename" ]]; then
 			MY_NEW_DEVICE=$( sudo dmesg | grep eth0 | grep "renamed from" | awk '{print $4}' | $SED_NU )
 			MY_NEW_DEVICE=${MY_NEW_DEVICE:0:-1}
 		fi
 
 		# Compara si el dispositivo está repetido: 
 		# DEVICE-REPEAT
-		if [ ! NEW == DEVICE ]; then
+		if [ ! $NEW == $DEVICE ]; then
 			# Conocer si el dispositivo esta levantado o cable conectado
 			if [[ -z $(sudo ip address show $MY_NEW_DEVICE | grep "UP") || -z $(sudo ip address show $MY_NEW_DEVICE | grep "LOWER_UP") ]]; then
 				push "Dispositivo $MY_NEW_DEVICE esta desactivado o no posee el cable conectado"
@@ -176,141 +245,28 @@ ethernet_nofunciona () {
 }
 
 # Detectar errores de wifi
-wifi_nofunciona () {
-	local NUM_NET_DEVICE=1
-	local SED_P="p"
-	local SED_NU="sed -n $NUM_NET_DEVICE$SED_P"
-	local NO_DEVICE=1
-	local DEVICE="."
-	local MY_NEW_DEVICE=""
+wireless () {
+	interfaces=$(cat /proc/net/dev | grep -o w[a-z0-9]*: | cut -d':' -f1)
+	interfaces_up=$(cat /proc/net/wireless | awk '/:/  {print $1}' | cut -d':' -f1)
 
-	# Detectar dispositivos
-	while [ $( sudo dmesg | grep wlan0 | grep "renamed from" | awk '{print $5}' | $SED_NU ) ]; do
-		NO_DEVICE=0
+	[[ "${#interfaces[@]}" -eq 0 ]] && push "No se encontraron interfaces de red wireless"
 
-		# Obtiene dispositivo wireless
-		MY_NEW_DEVICE=$( sudo dmesg | grep wlan0 | grep "renamed from" | awk '{print $5}' | $SED_NU )
-		MY_NEW_DEVICE=${MY_NEW_DEVICE:0:-1}
-		# Re-detectar dispositivo
-		if [ $MY_NEW_DEVICE == "rename" ]; then
-			MY_NEW_DEVICE=$( sudo dmesg | grep wlan0 | grep "renamed from" | awk '{print $4}' | $SED_NU )
-			MY_NEW_DEVICE=${MY_NEW_DEVICE:0:-1}
+	local downs=0
+	for interface in $interfaces; do
+		in_array $interface "${interfaces_up[@]}"
+		if [[ $? -ne 0 ]]; then
+			echo "Interfaz $interface está apagada, encendiendo (..)"
+			(( downs++ ))
+			sudo ifconfig "$interface" up
 		fi
+	done	
 
-		# Compara si el dispositivo está repetido: 
-		# DEVICE-REPEAT
-		if [ ! NEW == DEVICE ]; then
-			# Conocer si el dispositivo esta levantado
-			if [[ -z $(sudo ip address show $MY_NEW_DEVICE | grep "UP") || -z $(sudo ip address show $MY_NEW_DEVICE | grep "LOWER_UP") ]]; then
-				push "Dispositivo $MY_NEW_DEVICE esta desactivado o sin conexión"
-			else
-				# Comprobar si posee IP
-				if  [[ -z $( ip address show $MY_NEW_DEVICE |grep -i "inet" | sed -n 1p ) ]]; then
-					push "Dispositivo ethernet $MY_NEW_DEVICE no posee dirección IP"
-				fi
-
-				# obtener ip local			
-				if  [[ $(hostname --help | grep "all-ip-address") ]]; then
-					MY_IP=$(hostname -I |awk '{print $1}')
-				else
-					MY_IP=$(hostname -i |awk '{print $1}')
-				fi
-
-				# Comprobar mascara de red
-				if  [[ -z $(ip addr |grep $MY_IP |awk '{print $2}' FS="/" |awk '{print $1}') ]]; then
-					push "Dispositivo ethernet $MY_NEW_DEVICE no posee máscara de red"
-				fi
-
-				# Comprobar puerta de enlace
-				if  [[ -z $(ip route show |grep default | awk '{print $3}') ]]; then
-					push "Dispositivo ethernet $MY_NEW_DEVICE no posee puerta de enlace"
-				fi
-
-				# Comprobar DNS
-				if  [[ -z $(cat /etc/resolv.conf | grep nameserver -m 1 | awk '{print $2}') ]]; then
-					push "No se encontraron servidores DNS en '/etc/resolv.conf' "
-				fi
-			fi			
-		fi
-		
-		DEVICE=$MY_NEW_DEVICE
-		# END DEVICE-REPEAT
-		
-		let NUM_NET_DEVICE=$NUM_NET_DEVICE+1
-		SED_NU="sed -n $NUM_NET_DEVICE$SED_P"
-		
-	done
-
-	if [[ NO_DEVICE -eq 1 ]]; then
-		push "No se encontro dispositivo wifi"
-	fi
-}
-
-# -- OK
-bluetooth_nofunciona () {
-	# Está bloqueado
-	local soft_locked=$(rfkill | grep bluetooth | awk '{ print $4 }')
-	local hard_locked=$(rfkill | grep bluetooth | awk '{ print $5 }')
-
-	[[ "$soft_locked" != "unblocked" ]] && push "Hay un bluetooth bloqueado por soft"
-	[[ "$hard_locked" != "unblocked" ]] && push "Hay un bluetooth bloqueado por hard"
-}
-
-# --OK
-audio_nohay () {
-	local hardware=$(lspci -v | grep -i -A7 audio  | grep -i 'Subsystem' | cut -d':' -f2)
-	local driver_en_uso=$(lspci -v | grep -i -A7 audio  | grep 'Kernel driver in use' | cut -d':' -f2)
-	local drivers=$(lspci -v | grep -i -A7 audio  | grep 'Kernel modules' | cut -d':' -f2)
-
-	# No hay driver en uso?
-	if [[ -z "$driver_en_uso" ]]; then
-		push "Audio: no hay driver (drivers disponibles: $drivers, device: $hardware)"
-
-		# Verifico que ningún driver esté blacklisted
-		for driver in "${drivers[@]}"; do
-			in_array "snd_hda_intel" "${blacklist[@]}"
-			[[ $? -eq 0 ]] && push "Audio: $driver está en blacklist"
-		done	
-	fi
-
-	# muted?
-	muted=$(pacmd list-sinks | awk '/muted/ { print $2 }')
-	(grep yes <<< $(echo $muted)) >/dev/null
-	if [[ $? -eq 0 ]]; then
-		echo "Audio: hay un dispositivo 'silenciado', solucionando (..)"
-		amixer sset Master unmute >/dev/null
-		amixer sset Speaker unmute >/dev/null
-		amixer sset Headphone unmute >/dev/null
+	if [[ $downs -gt 0 ]]; then
+		if [[ ! -z $(systemctl list-unit-files | grep network-manager) ]]; then
+			echo "Re-iniciando NetworkManager (..)"
+			sudo service network-manager restart
+		fi	
 	fi	
-
-	# aplicar algo de esto?
-	# https://askubuntu.com/questions/1029502/no-audio-on-ubuntu-18-04
-	# https://help.ubuntu.com/community/SoundTroubleshootingProcedure
-	# https://zillowtech.com/ubuntu-no-sound.html
-}
-
-# -- OK
-ejecucion_lenta () {
-	local mem_ava=$(cat /proc/meminfo | grep MemAvailable | awk '{print $2}')	
-
-	local free_space_root=$(df -h | awk '
-		$6=="/" {
-			print $4
-		}
-	')
-
-	local free_space_root_h=$free_space_root
-
-	free_space_root=${free_space_root/K/000}
-	free_space_root=${free_space_root/M/000000}
-	free_space_root=${free_space_root/G/000000000}
-	free_space_root=${free_space_root/T/000000000000}
-
-	# menos de 4Gb libres en /
-	[[ $free_space_root -le 4000000000 ]] && push "Poco espacio ($free_space_root_h) en partición root"
-	
-	# Menos de 150Kb libres de RAM
-	[[ $mem_ava -le 150000 ]] && push "Memoria disponible insuficiente ($mem_ava kb)"
 }
 
 
@@ -319,12 +275,12 @@ blacklist
 
 # Ejecutados desde un menú o con cualquier otra GUI
 
-ejecucion_lenta
-touchpad_nofunciona
-ethernet_nofunciona
-wifi_nofunciona
-bluetooth_nofunciona
-audio_nohay
+performance
+touchpad
+#ethernet
+wireless
+bluetooth
+sound
 
 
 # Imprimo reporte
