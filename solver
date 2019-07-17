@@ -121,14 +121,14 @@ ethernet_nofunciona () {
 		MY_NEW_DEVICE=$( sudo dmesg | grep eth0 | grep "renamed from" | awk '{print $5}' | $SED_NU )
 		MY_NEW_DEVICE=${MY_NEW_DEVICE:0:-1}
 		# Re-detectar dispositivo
-		if [[ MY_NEW_DEVICE=="rename" ]]; then
+		if [ $MY_NEW_DEVICE == "rename" ]; then
 			MY_NEW_DEVICE=$( sudo dmesg | grep eth0 | grep "renamed from" | awk '{print $4}' | $SED_NU )
 			MY_NEW_DEVICE=${MY_NEW_DEVICE:0:-1}
 		fi
 
 		# Compara si el dispositivo está repetido: 
 		# DEVICE-REPEAT
-		if [ ! $NEW == $DEVICE ]; then
+		if [ ! NEW == DEVICE ]; then
 			# Conocer si el dispositivo esta levantado o cable conectado
 			if [[ -z $(sudo ip address show $MY_NEW_DEVICE | grep "UP") || -z $(sudo ip address show $MY_NEW_DEVICE | grep "LOWER_UP") ]]; then
 				push "Dispositivo $MY_NEW_DEVICE esta desactivado o no posee el cable conectado"
@@ -192,14 +192,14 @@ wifi_nofunciona () {
 		MY_NEW_DEVICE=$( sudo dmesg | grep wlan0 | grep "renamed from" | awk '{print $5}' | $SED_NU )
 		MY_NEW_DEVICE=${MY_NEW_DEVICE:0:-1}
 		# Re-detectar dispositivo
-		if [[ MY_NEW_DEVICE=="rename" ]]; then
+		if [ $MY_NEW_DEVICE == "rename" ]; then
 			MY_NEW_DEVICE=$( sudo dmesg | grep wlan0 | grep "renamed from" | awk '{print $4}' | $SED_NU )
 			MY_NEW_DEVICE=${MY_NEW_DEVICE:0:-1}
 		fi
 
 		# Compara si el dispositivo está repetido: 
 		# DEVICE-REPEAT
-		if [ ! $NEW == $DEVICE ]; then
+		if [ ! NEW == DEVICE ]; then
 			# Conocer si el dispositivo esta levantado
 			if [[ -z $(sudo ip address show $MY_NEW_DEVICE | grep "UP") || -z $(sudo ip address show $MY_NEW_DEVICE | grep "LOWER_UP") ]]; then
 				push "Dispositivo $MY_NEW_DEVICE esta desactivado o sin conexión"
