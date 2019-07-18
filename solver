@@ -179,11 +179,10 @@ ethernet () {
 
 	local downs=0
 	for interface in $interfaces; do
-		#echo $interface
 		if [[ -z $(sudo ip address show $interface | grep "UP>") ]]; then
 			echo "Interfaz $interface está apagada, encendiendo (..)"
 			(( downs++ ))
-			sudo ip link set "$interfaz" up
+			sudo ip link set "$interfaz" up 2>/dev/null
 		fi
 	done	
 	
