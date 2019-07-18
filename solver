@@ -345,17 +345,17 @@ blacklist
 
 # Ejecutados desde un menú o con cualquier otra GUI
 
-#performance
-#touchpad
-#ethernet
-#wireless
-#bluetooth
-#sound
+performance
+touchpad
+ethernet
+wireless
+bluetooth
+sound
 
 # Imprimo reporte!
 
-#for i in "${report[@]}"; do
-#    echo $i
-#done
+for i in "${report[@]}"; do
+    echo $i
+done
 
-menu
+#menu
