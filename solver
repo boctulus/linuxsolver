@@ -5,6 +5,54 @@ pkgm=''
 blacklist=()
 distro=''
 
+una_tecla(){
+	echo
+	for i in "${report[@]}"; do
+    	echo $i
+	done
+	echo
+	echo "Presiona enter para continuar..."
+	read tecla
+
+}
+
+# MENU
+menu () {
+	while :
+	do
+		clear
+		echo " Escoja una opcion "
+		echo "==================="
+		echo "1. Verificar problemas de rendimiento"
+		echo "2. Verificar touchpad"
+		echo "3. Problemas con ethernet"
+		echo "4. Problemas con WiFi"
+		echo "5. Problemas con bluetooth"
+		echo "6. Problemas de sonido"
+		echo "7. Salir del programa"
+		echo -n "Seleccione una opcion [1 - 7] "
+		read opcion
+		echo
+			case $opcion in
+			1) 	performance;
+				una_tecla;;
+			2) 	touchpad;
+				una_tecla;;
+			3) 	ethernet;
+				una_tecla;;
+			4) 	wireless;
+				una_tecla;;
+			5)	bluetooth;
+				una_tecla;;
+			6)	sound;
+				una_tecla;;
+			7) 	exit 1;
+				una_tecla;;
+			*) 	echo "'$opcion' es una opcion invalida.";
+				una_tecla;;
+			esac
+	done
+}
 
 push () {
 	report=("${report[@]}" "$1")
@@ -188,7 +236,7 @@ ethernet () {
 	
 	# Esto también va acá? | LEO: Si, es lo mismo que sea para ethernet que wifi
 	if [[ $downs -gt 0 ]]; then
-		if [[ ! -z $(systemctl list-unit-files | grep network-manager) ]]; then # Este if esta de más: siempre arroja 'enable' o 'disabled'. Propongo ( # Este if esta de más: siempre arroja 'enable' o 'disabled')
+		if [[ ! -z $(systemctl list-unit-files | grep network-manager | grep enabled) ]]; then 
 			echo "Re-iniciando NetworkManager (..)"
 			sudo service network-manager restart
 		fi	
@@ -216,7 +264,7 @@ ethernet () {
 
 			# si errora es igual a 0 hace ping contra el router
 			if [[ $errora -eq 0 ]]; then
-				echo "Intentando conexion, espere..."
+				echo "Probando conexion, espere..."
 				# ping Gateway
 				myping=$(ping -c3 $gateway | grep "3 packets transmitted" | awk '{print $1}')
 				[[ myping -ne '3' ]] && push "no hay conexion con el router" || push "conexion exitosa con el router"
@@ -249,7 +297,7 @@ wireless () {
 	done	
 
 	if [[ $downs -gt 0 ]]; then
-		if [[ ! -z $(systemctl list-unit-files | grep network-manager) ]]; then # Este if esta de más: siempre arroja 'enable' o 'disabled'. Propongo ( # Este if esta de más: siempre arroja 'enable' o 'disabled')
+		if [[ ! -z $(systemctl list-unit-files | grep network-manager | grep enable ) ]]; then
 			echo "Re-iniciando NetworkManager (..)"
 			sudo service network-manager restart
 		fi	
@@ -260,15 +308,15 @@ wireless () {
 		errora=0
 		if [[ $(sudo ip address show $interface | grep "LOWER_UP>") ]]; then
 			# Tiene IP
-			[[ -z $(ip address show $interface | grep "inet " | awk '{print $2}') ]] && push "no se encontro dirección IP para la interfaz: $interface" && (( errora++ ))
+			[[ -z $(ip address show $interface | grep "inet " | awk '{print $2}') ]] && push "No se encontro dirección IP para la interfaz: $interface" && (( errora++ ))
 
 			# IP/CIDR
 			maskara=$(ip address show $interface | grep "inet " | awk '{print $2}') # Obtiene IP/CIDR
 			maskara=${maskara:(-2)} # Corta el string, dejando los dós digitos de la derecha
-			[[ maskara -eq 0 ]] && push "no se encontro mascara de red para la interfaz: $interface" && (( errora++ ))
+			[[ maskara -eq 0 ]] && push "No se encontro mascara de red para la interfaz: $interface" && (( errora++ ))
 
 			# Gateway
-			[[ -z $(ip route show |grep default | awk '{print $3}') ]] && push "no se encontro puerta de enlace para la interfaz: $interface"
+			[[ -z $(ip route show |grep default | awk '{print $3}') ]] && push "No se encontro puerta de enlace para la interfaz: $interface"
 			gateway=$(ip route show |grep default | awk '{print $3}') # Guardando Gateway
 
 			# DNS
@@ -277,30 +325,19 @@ wireless () {
 
 			# si errora es igual a 0 hace ping contra router y DNS
 			if [[ $errora -eq 0 ]]; then
-				echo "Intentando conexion, espere..."
+				echo "Probando conexion, espere..."
 				# ping Gateway
 				myping=$(ping -c3 $gateway | grep "3 packets transmitted" | awk '{print $1}')
-				[[ myping -ne '3' ]] && push "no hay conexion con el router" || push "conexion exitosa con el router"
+				[[ myping -ne '3' ]] && push "No hay conexion con el router" || push "Conexion exitosa con el router"
 				# Ping DNS
 				myping=$(ping -c5 $dns | grep "5 packets transmitted" | awk '{print $1}')
-				[[ myping -ne '5' ]] && push "no hay conexion con el servidor DNS" || push "conexion exitosa con el servidor DNS"
+				[[ myping -ne '5' ]] && push "No hay conexion con el servidor DNS" || push "Conexion exitosa con el servidor DNS"
 			fi
 
 		else
 			push "Sin conexión WiFi en: $interface"
 		fi
 	done
-}
-
-una_tecla(){
-	echo
-	for i in "${report[@]}"; do
-    	echo $i
-	done
-	echo
-	echo "Presiona enter para continuar..."
-	read tecla
-
 }
 
 describe ; [[ -z $pkgm ]] && push "Package management desconocido"
@@ -315,45 +352,10 @@ blacklist
 #bluetooth
 #sound
 
-
 # Imprimo reporte!
 
 #for i in "${report[@]}"; do
 #    echo $i
 #done
 
-# MENU
-while :
-do
-	clear
-	echo " Escoja una opcion "
-	echo "==================="
-	echo "1. Verificar problemas de rendimiento"
-	echo "2. Verificar touchpad"
-	echo "3. Problemas con ethernet"
-	echo "4. Problemas con WiFi"
-	echo "5. Problemas con bluetooth"
-	echo "6. Problemas de sonido"
-	echo "7. Salir del programa"
-	echo -n "Seleccione una opcion [1 - 7] "
-	read opcion
-	echo
-		case $opcion in
-		1) 	performance;
-			una_tecla;;
-		2) 	touchpad;
-			una_tecla;;
-		3) 	ethernet;
-			una_tecla;;
-		4) 	wireless;
-			una_tecla;;
-		5)	bluetooth;
-			una_tecla;;
-		6)	sound;
-			una_tecla;;
-		7) 	exit 1;
-			una_tecla;;
-		*) 	echo "'$opcion' es una opcion invalida.";
-			una_tecla;;
-		esac
-done
+menu
