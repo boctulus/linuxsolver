@@ -226,7 +226,7 @@ touchpad () {
 				fi	
 			fi
 
-			(apt list --installed  | grep xserver-xorg-input-synaptics) >/dev/null 2>&1
+			(test $pkgm == 'apt') && (apt list --installed  | grep xserver-xorg-input-synaptics) >/dev/null 2>&1
 			if [[ $? -eq 0 ]]; then
 				synclient TouchpadOff=0
 			fi	
@@ -243,8 +243,8 @@ touchpad () {
 # -- OK
 bluetooth () {
 	# Está bloqueado
-	local soft_locked=$(rfkill | grep bluetooth | awk '{ print $4 }')
-	local hard_locked=$(rfkill | grep bluetooth | awk '{ print $5 }')
+	local soft_locked=$(rfkill -r | grep bluetooth | awk '{ print $4 }')
+	local hard_locked=$(rfkill -r | grep bluetooth | awk '{ print $5 }')
 
 	[[ "$soft_locked" != "unblocked" ]] && push "Hay un bluetooth bloqueado por soft"
 	[[ "$hard_locked" != "unblocked" ]] && push "Hay un bluetooth bloqueado por hard"
