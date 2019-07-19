@@ -327,11 +327,11 @@ ethernet () {
 		if [[ ! -z $(systemctl list-unit-files | grep network-manager | grep enabled) ]]; then 
 			echo "Re-iniciando NetworkManager (..)"
 			sudo service network-manager restart
+			sleep 10
 		fi	
 	fi	
 
 	#si tiene conexion al medio (cable) hacer:
-	sleep 1
 	for interface in $interfaces; do
 		errora=0
 		if [[ $(sudo ip address show $interface | grep "LOWER_UP>") ]]; then
@@ -367,7 +367,7 @@ ethernet () {
 		fi
 	done
 }
- 
+
 # Detectar errores de wifi
 wireless () {
 
@@ -400,11 +400,11 @@ wireless () {
 		if [[ ! -z $(systemctl list-unit-files | grep network-manager | grep enable ) ]]; then
 			echo "Re-iniciando NetworkManager (..)"
 			sudo service network-manager restart
+			sleep 10
 		fi	
 	fi
 
 	#si tiene conexion al medio (aire) hacer:
-	sleep 1
 	for interface in $interfaces; do
 		errora=0
 		if [[ $(sudo ip address show $interface | grep "LOWER_UP>") ]]; then
