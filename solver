@@ -43,6 +43,10 @@ TEXT
 	  echo -e "$help"
 	  return
 	  ;;
+	-i|--interactive)
+		menu
+		# return
+		;;  
 	-a|-all)
 		performance
 		sound
@@ -364,6 +368,12 @@ ethernet () {
  
 # Detectar errores de wifi
 wireless () {
+
+	# drivers
+
+	# lspci -k | grep -C2 -i wireless
+	# lsusb -t | grep -i Wireless
+
 	interfaces=$(cat /proc/net/dev | grep -o w[a-z0-9]*: | cut -d':' -f1)
 	interfaces_up=$(cat /proc/net/wireless | awk '/:/  {print $1}' | cut -d':' -f1)
 
@@ -426,21 +436,5 @@ wireless () {
 describe ; [[ -z $pkgm ]] && push "Package management desconocido"
 blacklist
 
-# Ejecutados desde un menú o con cualquier otra GUI
-
-#performance
-#touchpad
-#ethernet
-#wireless
-#bluetooth
-#sound
-
-# Imprimo reporte!
-
-#for i in "${report[@]}"; do
-#    echo $i
-#done
-
-#menu
 
 options $1
