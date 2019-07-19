@@ -5,6 +5,8 @@ declare -a report
 pkgm=''
 distro=''
 ver='0.1'
+LANGUAGE_PREV=$LANGUAGE
+LANGUAGE=en_US.UTF-8 
 
 print_report ()
 {
@@ -133,7 +135,8 @@ menu () {
 }
 
 push () {
-	report=("${report[@]}" "$1")
+	#report=("${report[@]}" "$1")
+	echo "$1"
 }
 
 function in_array() {
@@ -250,19 +253,28 @@ bluetooth () {
 	local soft_locked=$(rfkill -r | grep bluetooth | awk '{ print $4 }')
 	local hard_locked=$(rfkill -r | grep bluetooth | awk '{ print $5 }')
 
-	[[ "$soft_locked" != "unblocked" ]] && push "Hay un bluetooth bloqueado por soft"
+	if [[ "$soft_locked" != "unblocked" ]]; then
+		echo "Hay un bluetooth bloqueado por soft, desbloqueando (..)"
+		rfkill unblock bluetooth
+		if [[ $? -eq 0 ]]; then
+			echo 'Bluetooth desbloqueado'
+		else	
+			push "Bluetooth bloqueado por soft que no pudo ser desbloqueado" 
+		fi	
+	fi	
+
 	[[ "$hard_locked" != "unblocked" ]] && push "Hay un bluetooth bloqueado por hard"
 }
 
 # --OK
 sound () {
-	local hardware=$(lspci -v | grep -i -A7 audio  | grep -i 'Subsystem' | cut -d':' -f2)
-	local driver_en_uso=$(lspci -v | grep -i -A7 audio  | grep 'Kernel driver in use' | cut -d':' -f2)
-	local drivers=$(lspci -v | grep -i -A7 audio  | grep 'Kernel modules' | cut -d':' -f2)
+	local hardware=$(lspci -v | grep -i -A7 audio  | grep -i 'Subsystem' | cut -d':' -f2 | cut -c2- )
+	local driver_en_uso=$(lspci -v | grep -i -A7 audio  | grep 'Kernel driver in use' | cut -d':' -f2  | cut -c2-)
+	local drivers=$(lspci -v | grep -i -A7 audio  | grep 'Kernel modules' | cut -d':' -f2  | cut -c2-)
 
 	# No hay driver en uso?
 	if [[ -z "$driver_en_uso" ]]; then
-		push "Audio: no hay driver (drivers disponibles: $drivers, device: $hardware)"
+		push "Audio: no hay driver activo (drivers disponibles: $drivers, device: $hardware)"
 
 		# Verifico que ningún driver esté blacklisted
 		for driver in "${drivers[@]}"; do
@@ -357,7 +369,7 @@ ethernet () {
 
 			# si errora es igual a 0 hace ping contra el router
 			if [[ $errora -eq 0 ]]; then
-				echo "Probando conexion, espere..."
+				echo "Probando conexion de $interface, espere..."
 				# ping Gateway
 				myping=$(ping -c3 $gateway | grep "3 packets transmitted" | awk '{print $4}')
 				[[ myping -ne '3' ]] && push "no hay conexion con el router" || push "conexion exitosa con el router"
@@ -375,14 +387,35 @@ ethernet () {
 # Detectar errores de wifi
 wireless () {
 
-	# drivers
+	# PCI
+	local hardware=$(lspci -k | grep -i -A2 wireless | grep -i 'Subsystem' | cut -d':' -f2 | cut -c2-)
+	local driver_en_uso=$(lspci -k | grep -i -A2 wireless | grep 'in use:' | cut -d: -f2 | cut -c2-)
+	local drivers=$(lspci -k | grep -i -A2 wireless | grep -i 'Kernel modules:' | cut -d: -f2 | cut -c2)
 
-	# lspci -k | grep -C2 -i wireless
+	# No hay driver en uso?
+	if [[ -z "$driver_en_uso" ]]; then
+		push "Wireless: no hay driver activo (drivers disponibles: $drivers, device: $hardware)"
 
-	# lsusb -t | grep -i Wireless
-	#
-	# sino existe el driver se ve así:
-	#  |__ Port 6: Dev 4, If 1, Class=Video, Driver=, 480M
+		# Verifico que ningún driver esté blacklisted
+		for driver in "${drivers[@]}"; do
+			in_array "$driver" "${blacklist[@]}"
+			[[ $? -eq 0 ]] && push "Wireless: $driver está en blacklist"
+		done	
+	fi
+
+	# USB
+	local raw=$(sudo lsusb  -v | grep -B22 -i "Wireless Network Card")
+	local id_vendor=$(echo "$raw" | grep idVendor | awk '{print $2}' | cut -dx -f2)
+	local id_product=$(echo "$raw" | grep idProduct | awk '{print $2}' | cut -dx -f2)
+
+	hardware=$(echo "$raw" | grep iProduct | awk '{print $3}')
+	driver_en_uso=$(usb-devices | grep -A5 "Vendor=$id_vendor ProdID=$id_product" | grep -o Driver=[a-z0-9\-]* | cut -d= -f2)
+
+	# No hay driver en uso?
+	if [[ ! -z "$hardware" && -z "$driver_en_uso" ]]; then
+		push "Wireless USB: no hay driver para $hardware"
+	fi
+
 
 	interfaces=$(cat /proc/net/dev | grep -o w[a-z0-9]*: | cut -d':' -f1)
 	interfaces_up=$(cat /proc/net/wireless | awk '/:/  {print $1}' | cut -d':' -f1)
@@ -428,9 +461,12 @@ wireless () {
 			[[ -z $(cat /etc/resolv.conf | grep nameserver -m 1 | awk '{print $2}') ]] && push "No se encontraron servidores DNS en '/etc/resolv.conf' "
 			dns=$(ip route show |grep default | awk '{print $3}') # Guardando DNS
 
+			#echo "DNS server: $dns"
+			#echo "Puerta de enlace: $gateway"
+
 			# si errora es igual a 0 hace ping contra router y DNS
 			if [[ $errora -eq 0 ]]; then
-				echo "Probando conexion, espere..."
+				echo "Probando conexion de $interface, espere..."
 				# ping Gateway
 				myping=$(ping -c3 $gateway | grep "3 packets transmitted" | awk '{print $4}')
 				[[ myping -ne '3' ]] && push "No hay conexion con el router" || push "Conexion exitosa con el router"
