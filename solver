@@ -317,7 +317,8 @@ ethernet () {
 		if [[ -z $(sudo ip address show $interface | grep "UP>") ]]; then
 			echo "Interfaz $interface está apagada, encendiendo (..)"
 			(( downs++ ))
-			sudo ip link set "$interfaz" up 2>/dev/null
+			sudo ip link set "$interface" up 2>/dev/null
+			[[ $? -ne 0 ]] && push "Interfaz $interface no se pudo levantar"
 		fi
 	done	
 	
@@ -372,7 +373,11 @@ wireless () {
 	# drivers
 
 	# lspci -k | grep -C2 -i wireless
+
 	# lsusb -t | grep -i Wireless
+	#
+	# sino existe el driver se ve así:
+	#  |__ Port 6: Dev 4, If 1, Class=Video, Driver=, 480M
 
 	interfaces=$(cat /proc/net/dev | grep -o w[a-z0-9]*: | cut -d':' -f1)
 	interfaces_up=$(cat /proc/net/wireless | awk '/:/  {print $1}' | cut -d':' -f1)
@@ -385,7 +390,8 @@ wireless () {
 		if [[ $? -ne 0 ]]; then
 			echo "Interfaz $interface está apagada, encendiendo (..)"
 			(( downs++ ))
-			sudo ip link set "$interfaz" up
+			sudo ip link set "$interface" up 2>/dev/null
+			[[ $? -ne 0 ]] && push "Interfaz $interface no se pudo levantar"
 		fi
 	done	
 
