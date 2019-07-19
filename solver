@@ -155,7 +155,6 @@ function in_array() {
   return 1
 }
 
-
 # Sistema de paquetes utilizado, distribución, etc
 describe () {	
 	if [[ ! -z $(which apt) ]]; then
@@ -361,7 +360,7 @@ ethernet () {
 
 			# Gateway
 			[[ -z $(ip route show |grep default | awk '{print $3}') ]] && push "no se encontro puerta de enlace para la interfaz: $interface"
-			gateway=$(ip route show |grep default | awk '{print $3}') # Guardando Gateway
+			gateway=$(ip route show |grep default | awk '{print $3}' | cut -d$'\n' -f1)
 
 			# DNS
 			[[ -z $(cat /etc/resolv.conf | grep nameserver -m 1 | awk '{print $2}') ]] && push "No se encontraron servidores DNS en '/etc/resolv.conf' "
@@ -416,9 +415,8 @@ wireless () {
 		push "Wireless USB: no hay driver para $hardware"
 	fi
 
-
-	interfaces=$(cat /proc/net/dev | grep -o w[a-z0-9]*: | cut -d':' -f1)
-	interfaces_up=$(cat /proc/net/wireless | awk '/:/  {print $1}' | cut -d':' -f1)
+	local interfaces=$(cat /proc/net/dev | grep -o w[a-z0-9]*: | cut -d':' -f1)
+	local interfaces_up=$(cat /proc/net/wireless | awk '/:/  {print $1}' | cut -d':' -f1)
 
 	[[ "${#interfaces[@]}" -eq 0 ]] && push "No se encontraron interfaces de red wireless"
 
@@ -455,24 +453,25 @@ wireless () {
 
 			# Gateway
 			[[ -z $(ip route show |grep default | awk '{print $3}') ]] && push "No se encontro puerta de enlace para la interfaz: $interface"
-			gateway=$(ip route show |grep default | awk '{print $3}') # Guardando Gateway
+			gateway=$(ip route show |grep default | awk '{print $3}' | cut -d$'\n' -f1) 
 
 			# DNS
 			[[ -z $(cat /etc/resolv.conf | grep nameserver -m 1 | awk '{print $2}') ]] && push "No se encontraron servidores DNS en '/etc/resolv.conf' "
-			dns=$(ip route show |grep default | awk '{print $3}') # Guardando DNS
+			dns=$(ip route show |grep default | awk '{print $3}' | cut -d$'\n' -f1) # Guardando DNS
 
 			#echo "DNS server: $dns"
-			#echo "Puerta de enlace: $gateway"
 
 			# si errora es igual a 0 hace ping contra router y DNS
 			if [[ $errora -eq 0 ]]; then
 				echo "Probando conexion de $interface, espere..."
-				# ping Gateway
+
+				# Ping Gateway
 				myping=$(ping -c3 $gateway | grep "3 packets transmitted" | awk '{print $4}')
-				[[ myping -ne '3' ]] && push "No hay conexion con el router" || push "Conexion exitosa con el router"
+				[[ $myping -eq '0' ]] && push "No hay conexion con el router ($myping)" || push "Conexion exitosa con el router"
+				
 				# Ping DNS
 				myping=$(ping -c5 $dns | grep "5 packets transmitted" | awk '{print $4}')
-				[[ myping -ne '5' ]] && push "No hay conexion con el servidor DNS" || push "Conexion exitosa con el servidor DNS"
+				[[ $myping -eq '0' ]] && push "No hay conexion con el servidor DNS" || push "Conexion exitosa con el servidor DNS"
 			fi
 
 		else
