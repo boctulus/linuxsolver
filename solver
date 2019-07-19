@@ -363,18 +363,20 @@ ethernet () {
 			gateway=$(ip route show |grep default | awk '{print $3}' | cut -d$'\n' -f1)
 
 			# DNS
-			[[ -z $(cat /etc/resolv.conf | grep nameserver -m 1 | awk '{print $2}') ]] && push "No se encontraron servidores DNS en '/etc/resolv.conf' "
-			dns=$(ip route show |grep default | awk '{print $3}') # Guardando DNS
+			dns=$(cat /etc/resolv.conf | grep nameserver -m 1 | awk '{print $2}')
+			[[ -z $dns ]] && push "No se encontraron servidores DNS en '/etc/resolv.conf' "
 
 			# si errora es igual a 0 hace ping contra el router
 			if [[ $errora -eq 0 ]]; then
 				echo "Probando conexion de $interface, espere..."
-				# ping Gateway
-				myping=$(ping -c3 $gateway | grep "3 packets transmitted" | awk '{print $4}')
-				[[ myping -ne '3' ]] && push "no hay conexion con el router" || push "conexion exitosa con el router"
+				
+				# Ping Gateway
+				myping=$(ping -c3 $gateway | grep "packets transmitted" | awk '{print $4}')
+				[[ myping -eq 0 ]] && push "no hay conexion con el router" || push "conexion exitosa con el router"
+				
 				# Ping DNS
-				myping=$(ping -c5 $dns | grep "5 packets transmitted" | awk '{print $4}')
-				[[ myping -ne '5' ]] && push "no hay conexion con el servidor DNS" || push "conexion exitosa con el servidor DNS"
+				myping=$(ping -c5 $dns | grep "packets transmitted" | awk '{print $4}')
+				[[ myping -eq 0 ]] && push "no hay conexion con el servidor DNS" || push "conexion exitosa con el servidor DNS"
 			fi
 
 		else
@@ -440,6 +442,7 @@ wireless () {
 	fi
 
 	#si tiene conexion al medio (aire) hacer:
+	dns_tested=false
 	for interface in $interfaces; do
 		errora=0
 		if [[ $(sudo ip address show $interface | grep "LOWER_UP>") ]]; then
@@ -456,22 +459,23 @@ wireless () {
 			gateway=$(ip route show |grep default | awk '{print $3}' | cut -d$'\n' -f1) 
 
 			# DNS
-			[[ -z $(cat /etc/resolv.conf | grep nameserver -m 1 | awk '{print $2}') ]] && push "No se encontraron servidores DNS en '/etc/resolv.conf' "
-			dns=$(ip route show |grep default | awk '{print $3}' | cut -d$'\n' -f1) # Guardando DNS
-
-			#echo "DNS server: $dns"
+			dns=$(cat /etc/resolv.conf | grep nameserver -m 1 | awk '{print $2}')
+			[[ -z $dns ]] && push "No se encontraron servidores DNS en '/etc/resolv.conf' "
 
 			# si errora es igual a 0 hace ping contra router y DNS
 			if [[ $errora -eq 0 ]]; then
 				echo "Probando conexion de $interface, espere..."
 
 				# Ping Gateway
-				myping=$(ping -c3 $gateway | grep "3 packets transmitted" | awk '{print $4}')
-				[[ $myping -eq '0' ]] && push "No hay conexion con el router ($myping)" || push "Conexion exitosa con el router"
+				myping=$(ping -c3 $gateway | grep "packets transmitted" | awk '{print $4}')
+				[[ $myping -eq 0 ]] && push "No hay conexion con el router ($myping)" || push "Conexion exitosa con el router"
 				
 				# Ping DNS
-				myping=$(ping -c5 $dns | grep "5 packets transmitted" | awk '{print $4}')
-				[[ $myping -eq '0' ]] && push "No hay conexion con el servidor DNS" || push "Conexion exitosa con el servidor DNS"
+				if [[ $dns_tested == "false" ]]; then	# testeo el DNS Server una sola vez
+					myping=$(ping -c5 $dns | grep "packets transmitted" | awk '{print $4}')
+					[[ $myping -eq 0 ]] && push "No hay conexion con el servidor DNS" || push "Conexion exitosa con el servidor DNS"
+					dns_tested=true
+				fi	
 			fi
 
 		else
