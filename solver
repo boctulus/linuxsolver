@@ -128,6 +128,7 @@ menu () {
 			*) 	echo "'$opcion' es una opcion invalida.";
 				key;;
 			esac
+		unset report[@] # Reinicia variable
 	done
 }
 
@@ -196,6 +197,7 @@ touchpad () {
 				if [[ $enabled == "false" ]]; then
 					echo "Habilitando Touchpad (..)"
 					gsettings set org.gnome.desktop.peripherals.touchpad send-events enabled
+					sudo modprobe -r psmouse; sleep 1; sudo modprobe psmouse
 				fi
 	          	;;
 	     *cinnamon*)      
@@ -204,6 +206,7 @@ touchpad () {
 				if [[ $enabled == "false" ]]; then
 					echo "Habilitando Touchpad (..)"
 					gsettings set org.cinnamon.settings-daemon.peripherals.touchpad touchpad-enabled true
+					sudo modprobe -r psmouse; sleep 1; sudo modprobe psmouse
 				fi
 	          	;;
 
@@ -217,6 +220,7 @@ touchpad () {
 					echo "Intentando habilitar Touchpad (..)"
 					xinput enable "$id"
 					xinput set-prop "$id" "Device Enabled" 1
+					sudo modprobe -r psmouse; sleep 1; sudo modprobe psmouse
 				fi
 
 				# Vuelvo a chequear ...
@@ -355,10 +359,10 @@ ethernet () {
 			if [[ $errora -eq 0 ]]; then
 				echo "Probando conexion, espere..."
 				# ping Gateway
-				myping=$(ping -c3 $gateway | grep "3 packets transmitted" | awk '{print $1}')
+				myping=$(ping -c3 $gateway | grep "3 packets transmitted" | awk '{print $4}')
 				[[ myping -ne '3' ]] && push "no hay conexion con el router" || push "conexion exitosa con el router"
 				# Ping DNS
-				myping=$(ping -c5 $dns | grep "5 packets transmitted" | awk '{print $1}')
+				myping=$(ping -c5 $dns | grep "5 packets transmitted" | awk '{print $4}')
 				[[ myping -ne '5' ]] && push "no hay conexion con el servidor DNS" || push "conexion exitosa con el servidor DNS"
 			fi
 
@@ -428,10 +432,10 @@ wireless () {
 			if [[ $errora -eq 0 ]]; then
 				echo "Probando conexion, espere..."
 				# ping Gateway
-				myping=$(ping -c3 $gateway | grep "3 packets transmitted" | awk '{print $1}')
+				myping=$(ping -c3 $gateway | grep "3 packets transmitted" | awk '{print $4}')
 				[[ myping -ne '3' ]] && push "No hay conexion con el router" || push "Conexion exitosa con el router"
 				# Ping DNS
-				myping=$(ping -c5 $dns | grep "5 packets transmitted" | awk '{print $1}')
+				myping=$(ping -c5 $dns | grep "5 packets transmitted" | awk '{print $4}')
 				[[ myping -ne '5' ]] && push "No hay conexion con el servidor DNS" || push "Conexion exitosa con el servidor DNS"
 			fi
 
