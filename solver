@@ -157,23 +157,23 @@ function in_array() {
 
 # Sistema de paquetes utilizado, distribución, etc
 describe () {	
-	if [[ ! -z $(which apt) ]]; then
+	if [[ ! -z $(which apt 2>/dev/null) ]]; then
 		pkgm='apt'
 		else 
-			if [[ ! -z $(which dnf) ]]; then
+			if [[ ! -z $(which dnf 2>/dev/null) ]]; then
 				pkgm='dnf'	
 			else
-				if [[ ! -z $(which pacman) ]]; then
+				if [[ ! -z $(which pacman 2>/dev/null) ]]; then
 					pkgm='pacman'
 				else
-					if [[ ! -z $(which emerge) ]]; then
+					if [[ ! -z $(which emerge 2>/dev/null) ]]; then
 						pkgm='emerge'	
 					fi	
 				fi	
 			fi	
 	fi 	
 
-	distro=`(cat /etc/*-release | egrep '^ID=' | cut -c4-) 2>/dev/null`
+	distro=`((cat /etc/*-release 2>/dev/null)| egrep '^ID=' | cut -c4-)`
 }
 
 # Drivers en lista negra
@@ -189,7 +189,7 @@ blacklist () {
 touchpad () {
 
 	# Parsear xinput buscando "Touchpad"
-	[[ ! -z `which xinput` && -z $(xinput | grep -i touchpad) ]] && push "Touchad no detectado"
+	[[ ! -z `which xinput 2>/dev/null` && -z $(xinput | grep -i touchpad) ]] && push "Touchad no detectado"
 
 	shopt -s nocasematch
 	case $XDG_CURRENT_DESKTOP in
@@ -214,7 +214,7 @@ touchpad () {
 
 	    *)
 
-			if [[ ! -z `which xinput` ]]; then
+			if [[ ! -z `which xinput 2>/dev/null` ]]; then
 				local id=$(xinput list | egrep -i 'Touchpad|Synaptics' | awk '{ print $6 }' | cut -c4-6)
 				local enabled=$(xinput list-props $id | grep Device\ Enabled | awk '{print $4}')
 
@@ -390,7 +390,7 @@ wireless () {
 
 	# PCI
 	local hardware=$(lspci -k | grep -i -A2 wireless | grep -i 'Subsystem' | cut -d':' -f2 | cut -c2-)
-	local driver_en_uso=$(lspci -k | grep -i -A2 wireless | grep 'in use:' | cut -d: -f2 | cut -c2-)
+	local driver_en_uso=$(lspci -k | grep -i -A3 wireless | grep 'in use:' | cut -d: -f2 | cut -c2-)
 	local drivers=$(lspci -k | grep -i -A2 wireless | grep -i 'Kernel modules:' | cut -d: -f2 | cut -c2)
 
 	# No hay driver en uso?
