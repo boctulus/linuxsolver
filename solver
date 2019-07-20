@@ -278,17 +278,20 @@ rf () {
 	local soft_locked=$(rfkill -r | grep $type | awk '{ print $4 }')
 	local hard_locked=$(rfkill -r | grep $type | awk '{ print $5 }')
 
-	if [[ "$soft_locked" != "unblocked" ]]; then
+	if [[ ! "$soft_locked" =~ "unblocked" ]]; then
 		push "Hay un $type bloqueado por soft, desbloqueando (..)"
-		rfkill unblock $type
-		if [[ $? -eq 0 ]]; then
-			push "Dispositivo $type desbloqueado"
+		rfkill unblock $type 2>/dev/null
+
+		soft_locked=$(rfkill -r | grep $type | awk '{ print $4 }')
+		if [[ ! "$soft_locked" =~ "unblocked" ]]; then
+			push "Algún dispositivo $type bloqueado por soft que no pudo ser desbloqueado"		
 		else	
-			push "Dispositivo $type bloqueado por soft que no pudo ser desbloqueado" 
+			push "Dispositivos $type desbloqueados -OK"
+			
 		fi	
 	fi	
 
-	[[ "$hard_locked" != "unblocked" ]] && push "Hay un $type bloqueado por hard"
+	[[ ! "$hard_locked" =~ "unblocked" ]] && push "Hay un $type bloqueado por hard"
 }
 
 
@@ -476,25 +479,28 @@ wireless () {
 		push "Wireless USB: no hay driver para $hardware"
 	fi
 
-
 	# bloqueado ? desbloquear
 	rf wlan
 
+	# verifico interfaces
 	local interfaces=$(cat /proc/net/dev | grep -o w[a-z0-9]*: | cut -d':' -f1)
 	local interfaces_up=$(cat /proc/net/wireless | awk '/:/  {print $1}' | cut -d':' -f1)
 
 	[[ "${#interfaces[@]}" -eq 0 ]] && push "No se encontraron interfaces de red wireless"
 
 	local downs=0
+	local fails=0
 	for interface in $interfaces; do
 		in_array $interface "${interfaces_up[@]}"
 		if [[ $? -ne 0 ]]; then
 			push "Interfaz $interface está apagada, encendiendo (..)"
 			(( downs++ ))
 			sudo ip link set "$interface" up 2>/dev/null
-			[[ $? -ne 0 ]] && push "Interfaz $interface no se pudo levantar"
+			[[ $? -ne 0 ]] && { ((fails++)) && push "Interfaz $interface no se pudo levantar"; }
 		fi
 	done	
+
+	#[[ "${#interfaces[@]}" -eq $fails ]] && return
 
 	if [[ $downs -gt 0 ]]; then
 		if [[ ! -z $(systemctl list-unit-files | grep network-manager | grep enable ) ]]; then
@@ -531,7 +537,7 @@ wireless () {
 
 				# Ping Gateway
 				myping=$(ping -c3 $gateway | grep "packets transmitted" | awk '{print $4}')
-				[[ $myping -eq 0 ]] && push "No hay conexion con el router ($myping)" || push "Conexion exitosa con el router -OK"
+				[[ $myping -eq 0 ]] && push "No hay conexion con el router" || push "Conexion exitosa con el router -OK"
 				
 				# Ping DNS
 				if [[ $dns_tested == "false" ]]; then	# testeo el DNS Server una sola vez

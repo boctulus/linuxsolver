@@ -1,0 +1,2 @@
+#!/bin/bash
+sudo ifconfig wlx00c0ca752aa7 down
