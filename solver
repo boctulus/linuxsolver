@@ -334,7 +334,26 @@ performance () {
 
 
 # Detectar errores de ethernet
-ethernet () {
+ethernet () 
+{
+	local hardware=$(lspci -k | grep -i -A2 Ethernet | grep -i 'Subsystem' | cut -d':' -f2 | cut -c2-)
+	local driver_en_uso=$(lspci -k | grep -i -A3 Ethernet | grep 'in use:' | cut -d: -f2 | cut -c2-)
+	local drivers=$(lspci -k | grep -i -A2 Ethernet | grep -i 'Kernel modules:' | cut -d: -f2 | cut -c2-)
+
+	# No hay driver en uso?
+	if [[ -z "$driver_en_uso" ]]; then
+		push "Ethernet: no hay driver activo (drivers disponibles: $drivers, device: $hardware)"
+
+		# Verifico que ningún driver esté blacklisted
+		for driver in "${drivers[@]}"; do
+			in_array "$driver" "${blacklist[@]}"
+			[[ $? -eq 0 ]] && push "Ethernet: $driver está en blacklist"
+		done
+	else 
+		echo "Driver para $hardware -OK"	
+	fi
+
+
 	interfaces=$(ls /sys/class/net | grep '^e.*')
 
 	local downs=0
@@ -361,15 +380,15 @@ ethernet () {
 		errora=0
 		if [[ $(sudo ip address show $interface | grep "LOWER_UP>") ]]; then
 			# Tiene IP
-			[[ -z $(ip address show $interface | grep "inet " | awk '{print $2}') ]] && push "no se encontro dirección IP para la interfaz: $interface" && (( errora++ ))
+			[[ -z $(ip address show $interface | grep "inet " | awk '{print $2}') ]] && push "No se encontro dirección IP para la interfaz: $interface" && (( errora++ ))
 
 			# IP/CIDR
 			maskara=$(ip address show $interface | grep "inet " | awk '{print $2}') # Obtiene IP/CIDR
 			maskara=${maskara:(-2)} # Corta el string, dejando los dós digitos de la derecha
-			[[ maskara -eq 0 ]] && push "no se encontro mascara de red para la interfaz: $interface" && (( errora++ ))
+			[[ maskara -eq 0 ]] && push "No se encontro mascara de red para la interfaz: $interface" && (( errora++ ))
 
 			# Gateway
-			[[ -z $(ip route show |grep default | awk '{print $3}') ]] && push "no se encontro puerta de enlace para la interfaz: $interface"
+			[[ -z $(ip route show |grep default | awk '{print $3}') ]] && push "No se encontro puerta de enlace para la interfaz: $interface"
 			gateway=$(ip route show |grep default | awk '{print $3}' | cut -d$'\n' -f1)
 
 			# DNS
@@ -382,11 +401,11 @@ ethernet () {
 				
 				# Ping Gateway
 				myping=$(ping -c3 $gateway | grep "packets transmitted" | awk '{print $4}')
-				[[ myping -eq 0 ]] && push "no hay conexion con el router" || push "conexion exitosa con el router"
+				[[ myping -eq 0 ]] && push "no hay conexion con el router" || push "Conexion exitosa con el router -OK"
 				
 				# Ping DNS
 				myping=$(ping -c5 $dns | grep "packets transmitted" | awk '{print $4}')
-				[[ myping -eq 0 ]] && push "no hay conexion con el servidor DNS" || push "conexion exitosa con el servidor DNS"
+				[[ myping -eq 0 ]] && push "No hay conexion con el servidor DNS" || push "Conexion exitosa con el servidor DNS -OK"
 			fi
 
 		else
@@ -401,7 +420,7 @@ wireless () {
 	# PCI
 	local hardware=$(lspci -k | grep -i -A2 wireless | grep -i 'Subsystem' | cut -d':' -f2 | cut -c2-)
 	local driver_en_uso=$(lspci -k | grep -i -A3 wireless | grep 'in use:' | cut -d: -f2 | cut -c2-)
-	local drivers=$(lspci -k | grep -i -A2 wireless | grep -i 'Kernel modules:' | cut -d: -f2 | cut -c2)
+	local drivers=$(lspci -k | grep -i -A2 wireless | grep -i 'Kernel modules:' | cut -d: -f2 | cut -c2-)
 
 	# No hay driver en uso?
 	if [[ -z "$driver_en_uso" ]]; then
@@ -412,6 +431,8 @@ wireless () {
 			in_array "$driver" "${blacklist[@]}"
 			[[ $? -eq 0 ]] && push "Wireless: $driver está en blacklist"
 		done	
+	else 
+		echo "Driver para $hardware -OK"		
 	fi
 
 	# USB
@@ -482,12 +503,12 @@ wireless () {
 
 				# Ping Gateway
 				myping=$(ping -c3 $gateway | grep "packets transmitted" | awk '{print $4}')
-				[[ $myping -eq 0 ]] && push "No hay conexion con el router ($myping)" || push "Conexion exitosa con el router"
+				[[ $myping -eq 0 ]] && push "No hay conexion con el router ($myping)" || push "Conexion exitosa con el router -OK"
 				
 				# Ping DNS
 				if [[ $dns_tested == "false" ]]; then	# testeo el DNS Server una sola vez
 					myping=$(ping -c5 $dns | grep "packets transmitted" | awk '{print $4}')
-					[[ $myping -eq 0 ]] && push "No hay conexion con el servidor DNS" || push "Conexion exitosa con el servidor DNS"
+					[[ $myping -eq 0 ]] && push "No hay conexion con el servidor DNS" || push "Conexion exitosa con el servidor DNS -OK"
 					dns_tested=true
 				fi	
 			fi
