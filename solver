@@ -10,12 +10,12 @@ LANGUAGE=en_US.UTF-8
 LANG=$LANG
 LANG=en_US.UTF-8
 
-print_report ()
-{
-	for i in "${report[@]}"; do
-		echo -e "$i"
-	done	
-}
+#print_report ()
+#{
+#	for i in "${report[@]}"; do
+#		echo -e "$i"
+#	done	
+#}
 
 options () 
 {
@@ -44,12 +44,11 @@ TEXT
 	  	return
 		;;
 	-h|--help)
-	  echo -e "$help"
-	  return
-	  ;;
+		echo -e "$help"
+		return
+		;;
 	-i|--interactive)
 		menu
-		# return
 		;;  
 	-a|-all)
 		echo -e '\n[Performance]'
@@ -101,14 +100,8 @@ TEXT
 	esac
 }
 
-
 key () {
-	echo
-	for i in "${report[@]}"; do
-    	echo $i
-	done
-	echo
-	echo "Presiona enter para continuar..."
+	echo -e "\nPresiona enter para continuar..."
 	read tecla
 }
 
@@ -126,21 +119,27 @@ menu () {
 		echo "5. Problemas con bluetooth"
 		echo "6. Problemas de sonido"
 		echo "7. Salir del programa"
-		echo -n "Seleccione una opcion [1 - 7] "
+		echo -en "\nSeleccione una opcion [1 - 7] "
 		read opcion
 		echo
 			case $opcion in
 			1) 	performance;
+				[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 				key;;
 			2) 	touchpad;
+				[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 				key;;
 			3) 	ethernet;
+				[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 				key;;
 			4) 	wireless;
+				[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 				key;;
 			5)	bluetooth;
+				[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 				key;;
 			6)	sound;
+				[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 				key;;
 			7) 	exit 1;
 				key;;
