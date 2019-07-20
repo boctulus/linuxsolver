@@ -55,7 +55,7 @@ TEXT
 		performance
 		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 		
-		echo -e '\n[Audio]'
+		echo -e '\n[Sound]'
 		sound
 		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 		
@@ -309,11 +309,19 @@ sound () {
 	# muted?
 	muted=$(pacmd list-sinks | awk '/muted/ { print $2 }')
 	(grep yes <<< $(echo $muted)) >/dev/null
+	
 	if [[ $? -eq 0 ]]; then
 		push "Audio: hay un dispositivo 'silenciado', solucionando (..)"
-		amixer sset Master unmute >/dev/null
-		amixer sset Speaker unmute >/dev/null
-		amixer sset Headphone unmute >/dev/null
+		amixer -c 0 set Master playback 100% unmute >/dev/null 2>&1
+		sleep 1
+		amixer sset Master unmute >/dev/null 2>&1
+		amixer sset Speaker unmute >/dev/null 2>&1
+		amixer sset Headphone unmute >/dev/null 2>&1
+
+		muted=$(pacmd list-sinks | awk '/muted/ { print $2 }')
+		(grep yes <<< $(echo $muted)) >/dev/null
+
+		[[ $? -ne 0 ]] && push "Audio: dispositivo de audio pudo ser 'unmuted' -OK"
 	fi	
 
 	# aplicar algo de esto?
