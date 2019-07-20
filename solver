@@ -557,4 +557,4 @@ describe ; [[ -z $pkgm ]] && push "Package management desconocido"
 blacklist
 
 
-options $1
+options $1 
