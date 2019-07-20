@@ -178,7 +178,7 @@ describe () {
 
 # Drivers en lista negra
 blacklist () {
-	blacklist=$(cat /etc/modprobe.d/*blacklist* | egrep '^blacklist ' | cut -d' ' -f2)
+	blacklist=$(cat /etc/modprobe.d/*blacklist* 2>/dev/null | egrep '^blacklist ' | cut -d' ' -f2)
 }
 
 #
@@ -246,23 +246,31 @@ touchpad () {
 }
 
 
-# -- OK
-bluetooth () {
-	# Está bloqueado
-	local soft_locked=$(rfkill -r | grep bluetooth | awk '{ print $4 }')
-	local hard_locked=$(rfkill -r | grep bluetooth | awk '{ print $5 }')
+rf () {
+	# bluetooth|wlan|id
+	type=$1
+
+	local soft_locked=$(rfkill -r | grep $type | awk '{ print $4 }')
+	local hard_locked=$(rfkill -r | grep $type | awk '{ print $5 }')
 
 	if [[ "$soft_locked" != "unblocked" ]]; then
-		echo "Hay un bluetooth bloqueado por soft, desbloqueando (..)"
-		rfkill unblock bluetooth
+		echo "Hay un $type bloqueado por soft, desbloqueando (..)"
+		rfkill unblock $type
 		if [[ $? -eq 0 ]]; then
-			echo 'Bluetooth desbloqueado'
+			echo "Dispositivo $type desbloqueado"
 		else	
-			push "Bluetooth bloqueado por soft que no pudo ser desbloqueado" 
+			push "Dispositivo $type bloqueado por soft que no pudo ser desbloqueado" 
 		fi	
 	fi	
 
-	[[ "$hard_locked" != "unblocked" ]] && push "Hay un bluetooth bloqueado por hard"
+	[[ "$hard_locked" != "unblocked" ]] && push "Hay un $type bloqueado por hard"
+}
+
+
+# -- OK
+bluetooth () {
+	# bloqueado ? desbloquear 
+	rf bluetooth
 }
 
 # --OK
@@ -405,7 +413,7 @@ wireless () {
 	fi
 
 	# USB
-	local raw=$(sudo lsusb  -v | grep -B22 -i "Wireless Network Card")
+	local raw=$((sudo lsusb -v 2>/dev/null) | grep -B22 -i "Wireless Network Card")
 	local id_vendor=$(echo "$raw" | grep idVendor | awk '{print $2}' | cut -dx -f2)
 	local id_product=$(echo "$raw" | grep idProduct | awk '{print $2}' | cut -dx -f2)
 
@@ -416,6 +424,10 @@ wireless () {
 	if [[ ! -z "$hardware" && -z "$driver_en_uso" ]]; then
 		push "Wireless USB: no hay driver para $hardware"
 	fi
+
+
+	# bloqueado ? desbloquear
+	rf wlan
 
 	local interfaces=$(cat /proc/net/dev | grep -o w[a-z0-9]*: | cut -d':' -f1)
 	local interfaces_up=$(cat /proc/net/wireless | awk '/:/  {print $1}' | cut -d':' -f1)
