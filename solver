@@ -448,9 +448,14 @@ TEXT
 		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 		;;		
 	*)
-	  echo -e "$(basename $0): unrecognized option '$sel'\nTry '$(basename $0) --help' for more information";
-	  return
-	  ;;
+		
+		if [[ $# -eq 0 ]]; then
+			echo -e "$help"
+		else
+			echo -e "$(basename $0): unrecognized option '$sel'\nTry '$(basename $0) --help' for more information";
+		fi 
+		return
+		;;
 	esac
 }
 
