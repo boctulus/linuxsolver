@@ -52,12 +52,29 @@ TEXT
 		# return
 		;;  
 	-a|-all)
+		echo -e '\n[Performance]'
 		performance
+		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
+		
+		echo -e '\n[Audio]'
 		sound
+		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
+		
+		echo -e '\n[Bluetooth]'
 		bluetooth
+		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
+		
+		echo -e '\n[Touchpad]'
 		touchpad
+		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
+		
+		echo -e '\n[Ethernet]'
 		ethernet
+		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
+		
+		echo -e '\n[Wireless]'
 		wireless
+		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 		;;
 	-p|--performance)
 		performance
@@ -82,8 +99,6 @@ TEXT
 	  return
 	  ;;
 	esac
-
-	print_report
 }
 
 
@@ -137,7 +152,7 @@ menu () {
 }
 
 push () {
-	#report=("${report[@]}" "$1")
+	report=("${report[@]}" "$1")
 	echo "$1"
 }
 
@@ -199,7 +214,7 @@ touchpad () {
 				enabled=$(gsettings get org.gnome.desktop.peripherals.touchpad touchpad-enabled)
 
 				if [[ $enabled == "false" ]]; then
-					echo "Habilitando Touchpad (..)"
+					push "Habilitando Touchpad (..)"
 					gsettings set org.gnome.desktop.peripherals.touchpad send-events enabled
 					sudo modprobe -r psmouse; sleep 1; sudo modprobe psmouse
 				fi
@@ -208,7 +223,7 @@ touchpad () {
 				enabled=$(gsettings get org.cinnamon.settings-daemon.peripherals.touchpad touchpad-enabled)
 
 				if [[ $enabled == "false" ]]; then
-					echo "Habilitando Touchpad (..)"
+					push "Habilitando Touchpad (..)"
 					gsettings set org.cinnamon.settings-daemon.peripherals.touchpad touchpad-enabled true
 					sudo modprobe -r psmouse; sleep 1; sudo modprobe psmouse
 				fi
@@ -221,7 +236,7 @@ touchpad () {
 				local enabled=$(xinput list-props $id | grep Device\ Enabled | awk '{print $4}')
 
 				if [[ $enabled -eq 0 ]]; then
-					echo "Intentando habilitar Touchpad (..)"
+					push "Intentando habilitar Touchpad (..)"
 					xinput enable "$id"
 					xinput set-prop "$id" "Device Enabled" 1
 					sudo modprobe -r psmouse; sleep 1; sudo modprobe psmouse
@@ -256,10 +271,10 @@ rf () {
 	local hard_locked=$(rfkill -r | grep $type | awk '{ print $5 }')
 
 	if [[ "$soft_locked" != "unblocked" ]]; then
-		echo "Hay un $type bloqueado por soft, desbloqueando (..)"
+		push "Hay un $type bloqueado por soft, desbloqueando (..)"
 		rfkill unblock $type
 		if [[ $? -eq 0 ]]; then
-			echo "Dispositivo $type desbloqueado"
+			push "Dispositivo $type desbloqueado"
 		else	
 			push "Dispositivo $type bloqueado por soft que no pudo ser desbloqueado" 
 		fi	
@@ -296,7 +311,7 @@ sound () {
 	muted=$(pacmd list-sinks | awk '/muted/ { print $2 }')
 	(grep yes <<< $(echo $muted)) >/dev/null
 	if [[ $? -eq 0 ]]; then
-		echo "Audio: hay un dispositivo 'silenciado', solucionando (..)"
+		push "Audio: hay un dispositivo 'silenciado', solucionando (..)"
 		amixer sset Master unmute >/dev/null
 		amixer sset Speaker unmute >/dev/null
 		amixer sset Headphone unmute >/dev/null
@@ -350,7 +365,7 @@ ethernet ()
 			[[ $? -eq 0 ]] && push "Ethernet: $driver está en blacklist"
 		done
 	else 
-		echo "Driver para $hardware -OK"	
+		push "Driver para $hardware -OK"	
 	fi
 
 
@@ -359,7 +374,7 @@ ethernet ()
 	local downs=0
 	for interface in $interfaces; do
 		if [[ -z $(sudo ip address show $interface | grep "UP>") ]]; then
-			echo "Interfaz $interface está apagada, encendiendo (..)"
+			push "Interfaz $interface está apagada, encendiendo (..)"
 			(( downs++ ))
 			sudo ip link set "$interface" up 2>/dev/null
 			[[ $? -ne 0 ]] && push "Interfaz $interface no se pudo levantar"
@@ -369,7 +384,7 @@ ethernet ()
 	# Esto también va acá? | LEO: Si, es lo mismo que sea para ethernet que wifi
 	if [[ $downs -gt 0 ]]; then
 		if [[ ! -z $(systemctl list-unit-files | grep network-manager | grep enabled) ]]; then 
-			echo "Re-iniciando NetworkManager (..)"
+			push "Re-iniciando NetworkManager (..)"
 			sudo service network-manager restart
 			sleep 10
 		fi	
@@ -397,7 +412,7 @@ ethernet ()
 
 			# si errora es igual a 0 hace ping contra el router
 			if [[ $errora -eq 0 ]]; then
-				echo "Probando conexion de $interface, espere..."
+				push "Probando conexion de $interface, espere..."
 				
 				# Ping Gateway
 				myping=$(ping -c3 $gateway | grep "packets transmitted" | awk '{print $4}')
@@ -432,7 +447,7 @@ wireless () {
 			[[ $? -eq 0 ]] && push "Wireless: $driver está en blacklist"
 		done	
 	else 
-		echo "Driver para $hardware -OK"		
+		push "Driver para $hardware -OK"		
 	fi
 
 	# USB
@@ -461,7 +476,7 @@ wireless () {
 	for interface in $interfaces; do
 		in_array $interface "${interfaces_up[@]}"
 		if [[ $? -ne 0 ]]; then
-			echo "Interfaz $interface está apagada, encendiendo (..)"
+			push "Interfaz $interface está apagada, encendiendo (..)"
 			(( downs++ ))
 			sudo ip link set "$interface" up 2>/dev/null
 			[[ $? -ne 0 ]] && push "Interfaz $interface no se pudo levantar"
@@ -470,7 +485,7 @@ wireless () {
 
 	if [[ $downs -gt 0 ]]; then
 		if [[ ! -z $(systemctl list-unit-files | grep network-manager | grep enable ) ]]; then
-			echo "Re-iniciando NetworkManager (..)"
+			push "Re-iniciando NetworkManager (..)"
 			sudo service network-manager restart
 			sleep 10
 		fi	
@@ -499,7 +514,7 @@ wireless () {
 
 			# si errora es igual a 0 hace ping contra router y DNS
 			if [[ $errora -eq 0 ]]; then
-				echo "Probando conexion de $interface, espere..."
+				push "Probando conexion de $interface, espere..."
 
 				# Ping Gateway
 				myping=$(ping -c3 $gateway | grep "packets transmitted" | awk '{print $4}')
