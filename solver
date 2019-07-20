@@ -68,6 +68,7 @@ TEXT
 		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 		
 		echo -e '\n[Ethernet]'
+		sudo true
 		ethernet
 		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 		
@@ -77,21 +78,29 @@ TEXT
 		;;
 	-p|--performance)
 		performance
+		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 		;;			
 	-s|--sound)
 		sound
+		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 		;;
 	-b|--bluetooth)
 		bluetooth
+		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 		;;
 	-t|--touchpad)
 		touchpad
+		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 		;;		
 	-e|--ethernet)
+		sudo true
 		ethernet
+		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 		;;
 	-w|wireless)
+		sudo true
 		wireless
+		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 		;;		
 	*)
 	  echo -e "$(basename $0): unrecognized option '$sel'\nTry '$(basename $0) --help' for more information";
@@ -123,27 +132,27 @@ menu () {
 		read opcion
 		echo
 			case $opcion in
-			1) 	performance;
+			1) 	performance
 				[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 				key;;
-			2) 	touchpad;
+			2) 	touchpad
 				[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 				key;;
-			3) 	ethernet;
+			3) 	sudo true; ethernet
 				[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 				key;;
-			4) 	wireless;
+			4) 	sudo true; wireless
 				[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 				key;;
-			5)	bluetooth;
+			5)	bluetooth
 				[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 				key;;
-			6)	sound;
+			6)	sound
 				[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 				key;;
-			7) 	exit 1;
+			7) 	exit 0
 				key;;
-			*) 	echo "'$opcion' es una opcion invalida.";
+			*) 	echo "'$opcion' es una opcion invalida."
 				key;;
 			esac
 		unset report[@] # Reinicia variable
@@ -308,9 +317,8 @@ sound () {
 
 	# muted?
 	muted=$(pacmd list-sinks | awk '/muted/ { print $2 }')
-	(grep yes <<< $(echo $muted)) >/dev/null
 	
-	if [[ $? -eq 0 ]]; then
+	if [[ $muted == 'yes' ]]; then
 		push "Audio: hay un dispositivo 'silenciado', solucionando (..)"
 		amixer -c 0 set Master playback 100% unmute >/dev/null 2>&1
 		sleep 1
@@ -319,9 +327,7 @@ sound () {
 		amixer sset Headphone unmute >/dev/null 2>&1
 
 		muted=$(pacmd list-sinks | awk '/muted/ { print $2 }')
-		(grep yes <<< $(echo $muted)) >/dev/null
-
-		[[ $? -ne 0 ]] && push "Audio: dispositivo de audio pudo ser 'unmuted' -OK"
+		[[ $muted == 'no' ]] && push "Audio: dispositivo de audio pudo ser 'unmuted' -OK"
 	fi	
 
 	# aplicar algo de esto?
