@@ -23,7 +23,7 @@ touchpad_force_reload ()
 	set +f; unset IFS
 
 	for driver in $@; do
-		echo "Reloading driver $driver,..."
+		push "Reloading driver $driver,..."
 		sudo modprobe -r $driver && sleep 1 && sudo modprobe $driver
 	done
 }
@@ -183,7 +183,7 @@ performance () {
 		free_space_root_h=${free_space_root_h/}
 		push "Poco espacio ($free_space_root_h) en partición root"
 	else
-		push "($free_space_root_h) en partición root" "v"
+		push "$free_space_root_h en partición root" "v"
 	fi	
 	
 	# Menos de 150Kb libres de RAM
