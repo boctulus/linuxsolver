@@ -121,6 +121,8 @@ sound () {
 			in_array "$driver" "${blacklist[@]}"
 			[[ $? -eq 0 ]] && push "Audio: $driver está en blacklist"
 		done	
+	else
+		push "Driver '$driver_en_uso' para '$hardware' -OK" "v"
 	fi
 
 	# muted?
@@ -136,6 +138,8 @@ sound () {
 
 		muted=$(pacmd list-sinks | awk '/muted/ { print $2 }')
 		[[ $muted == 'no' ]] && push "Audio: dispositivo de audio pudo ser 'unmuted' -OK"
+	else
+		push "No hay dispositivo de audio 'muted' -OK" "v"
 	fi	
 
 	# aplicar algo de esto?
@@ -162,10 +166,19 @@ performance () {
 	free_space_root=${free_space_root/T/000000000000}
 
 	# menos de 4Gb libres en /
-	[[ $free_space_root -le 4000000000 ]] && push "Poco espacio ($free_space_root_h) en partición root"
+	if [[ $free_space_root -le 4000000000 ]]; then 
+		free_space_root_h=${free_space_root_h/}
+		push "Poco espacio ($free_space_root_h) en partición root"
+	else
+		push "($free_space_root_h) en partición root" "v"
+	fi	
 	
 	# Menos de 150Kb libres de RAM
-	[[ $mem_ava -le 150000 ]] && push "Memoria disponible insuficiente ($mem_ava kb)"
+	if [[ $mem_ava -le 150000 ]]; then
+		push "Memoria disponible insuficiente ($mem_ava kb)"
+	else
+		push "$mem_ava kb de RAM disponible" "v"
+	fi	
 }
 
 
@@ -263,12 +276,14 @@ wireless () {
 		push "Wireless: no hay driver activo (drivers disponibles: $drivers, device: $hardware)"
 
 		# Verifico que ningún driver esté blacklisted
+		blacklisted=0
 		for driver in "${drivers[@]}"; do
 			in_array "$driver" "${blacklist[@]}"
-			[[ $? -eq 0 ]] && push "Wireless: $driver está en blacklist"
+			[[ $? -eq 0 ]] && { blacklisted=1; push "Wireless: $driver está en blacklist"; }
 		done	
+		[[ $blacklisted -eq 0 ]] && push "No hay drivers en blacklist -OK" "v"
 	else 
-		push "Driver para $hardware -OK"		
+		push "Driver $driver_en_uso en uso para $hardware -OK" "v"		
 	fi
 
 	# USB
@@ -282,6 +297,8 @@ wireless () {
 	# No hay driver en uso?
 	if [[ ! -z "$hardware" && -z "$driver_en_uso" ]]; then
 		push "Wireless USB: no hay driver para $hardware"
+	else
+		push "Driver $driver_en_uso en uso para $hardware -OK" "v"
 	fi
 
 	# bloqueado ? desbloquear
@@ -326,7 +343,7 @@ wireless () {
 			# IP/CIDR
 			maskara=$(ip address show $interface | grep "inet " | awk '{print $2}') # Obtiene IP/CIDR
 			maskara=${maskara:(-2)} # Corta el string, dejando los dós digitos de la derecha
-			[[ maskara -eq 0 ]] && push "No se encontro mascara de red para la interfaz: $interface" && (( errora++ ))
+			[[ maskara -eq 0 ]] && { push "No se encontro mascara de red para la interfaz: $interface" && (( errora++ )); }
 
 			# Gateway
 			[[ -z $(ip route show |grep default | awk '{print $3}') ]] && push "No se encontro puerta de enlace para la interfaz: $interface"
@@ -364,25 +381,42 @@ wireless () {
 
 options () 
 {
-	sel=$1
-
 	help=$(cat <<-TEXT
+
+	Usage:
+	 $(basename $0) [-v] <options>
+
+	Display or solve hardware configuration issues
+
 	Options:
 	 -i, --interactive              interactive mode (menu)
 
 	 -a, --all                      run all tests  
-	 -b, --bluetooth                check for Bluetooth
-	 -t, --touchpad                 check for touchpad
+	 -b, --bluetooth                bluetooth checking
+	 -t, --touchpad                 touchpad checking
 	 -w, --wireless                 wifi tests
 	 -e, --ethernet                 ethernet tests
 	 -p, --performance              check why computer can be running slow
-	 -P, --printer                  printer tests
 	 -s, --sound                    sound tests 
 
 	 -h, --help                     display this help
 	 -V, --version                  display version
+
+	 -v, --verbose                  shows detailed information
 TEXT
 )
+
+	verbose=
+
+	case "$1" in
+	-v|--verbose)
+	    verbose=1
+	    shift 1
+	    ;;
+	esac
+
+	sel=$1
+
 	case $sel in
 	-V|--version)
 	  	echo "$(basename $0) version $ver"
@@ -510,8 +544,10 @@ menu () {
 }
 
 push () {
-	report=("${report[@]}" "$1")
-	echo "$1"
+	if [[ "$2" != "v" ]] || [[ "$2" == "v" && $verbose -eq 1 ]]; then
+		report=("${report[@]}" "$1")
+		echo "$1"
+	fi
 }
 
 function in_array() {
@@ -561,4 +597,4 @@ describe ; [[ -z $pkgm ]] && push "Package management desconocido"
 blacklist
 
 
-options $1 
+options $@ 
