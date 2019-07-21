@@ -15,11 +15,24 @@ LANG=en_US.UTF-8
 ### Solvers
 #
 
+touchpad_force_reload () 
+{
+	drivers_str=$(lsmod | awk '{print $1 " "}' |  egrep '.*touch.*|.*mouse.*')
+	set -f; IFS=$'\n'
+	set -- $drivers_str
+	set +f; unset IFS
+
+	for driver in $@; do
+		echo "Reloading driver $driver,..."
+		sudo modprobe -r $driver && sleep 1 && sudo modprobe $driver
+	done
+}
+
 # --OK
 touchpad () {
 
 	# Parsear xinput buscando "Touchpad"
-	[[ ! -z `which xinput 2>/dev/null` && -z $(xinput | grep -i touchpad) ]] && push "Touchad no detectado"
+	[[ ! -z `which xinput 2>/dev/null` && -z $(xinput | grep -i touchpad) ]] && push "Touchad no detectado - driver?"
 
 	shopt -s nocasematch
 	case $XDG_CURRENT_DESKTOP in
@@ -29,7 +42,6 @@ touchpad () {
 				if [[ $enabled == "false" ]]; then
 					push "Habilitando Touchpad (..)"
 					gsettings set org.gnome.desktop.peripherals.touchpad send-events enabled
-					sudo modprobe -r psmouse; sleep 1; sudo modprobe psmouse
 				fi
 	          	;;
 	     *cinnamon*)      
@@ -38,7 +50,6 @@ touchpad () {
 				if [[ $enabled == "false" ]]; then
 					push "Habilitando Touchpad (..)"
 					gsettings set org.cinnamon.settings-daemon.peripherals.touchpad touchpad-enabled true
-					sudo modprobe -r psmouse; sleep 1; sudo modprobe psmouse
 				fi
 	          	;;
 
@@ -52,7 +63,6 @@ touchpad () {
 					push "Intentando habilitar Touchpad (..)"
 					xinput enable "$id"
 					xinput set-prop "$id" "Device Enabled" 1
-					sudo modprobe -r psmouse; sleep 1; sudo modprobe psmouse
 				fi
 
 				# Vuelvo a chequear ...
@@ -62,13 +72,14 @@ touchpad () {
 				fi	
 			fi
 
-			(test $pkgm == 'apt') && (apt list --installed  | grep xserver-xorg-input-synaptics) >/dev/null 2>&1
-			if [[ $? -eq 0 ]]; then
+			if [[ ! -z `which TouchpadOff 2>/dev/null` ]]; then
 				synclient TouchpadOff=0
 			fi	
     		;;      	
 	esac
 	shopt -u nocasematch
+
+	[[ $force -eq 1 ]] && touchpad_force_reload
 
 	# Parsear la linea GRUB_CMDLINE_LINUX_DEFAULT de /etc/default/grub en búsqueda de acpi=off por ejemplo
 	(grep GRUB_CMDLINE_LINUX_DEFAULT /etc/default/grub | egrep '(acpi=off|acpi_os=!)') >/dev/null 2>&1
@@ -82,6 +93,8 @@ rf () {
 
 	local soft_locked=$(rfkill -r | grep $type | awk '{ print $4 }')
 	local hard_locked=$(rfkill -r | grep $type | awk '{ print $5 }')
+
+	[[ ! $soft_locked =~ " blocked" ]] && [[ ! $hard_locked =~ " blocked" ]] && push "No hay dispositivos $type bloqueados -OK" "v"
 
 	if [[ ! "$soft_locked" =~ "unblocked" ]]; then
 		push "Hay un $type bloqueado por soft, desbloqueando (..)"
@@ -199,7 +212,7 @@ ethernet ()
 			[[ $? -eq 0 ]] && push "Ethernet: $driver está en blacklist"
 		done
 	else 
-		push "Driver para $hardware -OK"	
+		push "Driver '$driver_en_uso' en uso para '$hardware' -OK" "v"	
 	fi
 
 
@@ -234,7 +247,7 @@ ethernet ()
 			# IP/CIDR
 			maskara=$(ip address show $interface | grep "inet " | awk '{print $2}') # Obtiene IP/CIDR
 			maskara=${maskara:(-2)} # Corta el string, dejando los dós digitos de la derecha
-			[[ maskara -eq 0 ]] && push "No se encontro mascara de red para la interfaz: $interface" && (( errora++ ))
+			[[ maskara -eq 0 ]] && { push "No se encontro mascara de red para la interfaz: $interface" && (( errora++ )); }
 
 			# Gateway
 			[[ -z $(ip route show |grep default | awk '{print $3}') ]] && push "No se encontro puerta de enlace para la interfaz: $interface"
@@ -283,7 +296,7 @@ wireless () {
 		done	
 		[[ $blacklisted -eq 0 ]] && push "No hay drivers en blacklist -OK" "v"
 	else 
-		push "Driver $driver_en_uso en uso para $hardware -OK" "v"		
+		push "Driver '$driver_en_uso' en uso para '$hardware' -OK" "v"		
 	fi
 
 	# USB
@@ -295,10 +308,12 @@ wireless () {
 	driver_en_uso=$(usb-devices | grep -A5 "Vendor=$id_vendor ProdID=$id_product" | grep -o Driver=[a-z0-9\-]* | cut -d= -f2)
 
 	# No hay driver en uso?
-	if [[ ! -z "$hardware" && -z "$driver_en_uso" ]]; then
-		push "Wireless USB: no hay driver para $hardware"
-	else
-		push "Driver $driver_en_uso en uso para $hardware -OK" "v"
+	if [[ ! -z "$hardware" ]]; then
+		if [[ -z "$driver_en_uso" ]]; then
+			push "Wireless USB: no hay driver para $hardware"
+		else
+			push "Driver '$driver_en_uso' en uso para '$hardware' -OK" "v"
+		fi
 	fi
 
 	# bloqueado ? desbloquear
@@ -384,13 +399,15 @@ options ()
 	help=$(cat <<-TEXT
 
 	Usage:
-	 $(basename $0) [-v] <options>
+	 $(basename $0) [-v] [-f] <options>
 
 	Display or solve hardware configuration issues
 
 	Options:
-	 -i, --interactive              interactive mode (menu)
+	 -v, --verbose                  shows detailed information
+	 -f, --force                    force to solve when it's possible
 
+	 -i, --interactive              interactive mode (menu)
 	 -a, --all                      run all tests  
 	 -b, --bluetooth                bluetooth checking
 	 -t, --touchpad                 touchpad checking
@@ -402,7 +419,6 @@ options ()
 	 -h, --help                     display this help
 	 -V, --version                  display version
 
-	 -v, --verbose                  shows detailed information
 TEXT
 )
 
@@ -411,6 +427,15 @@ TEXT
 	case "$1" in
 	-v|--verbose)
 	    verbose=1
+	    shift 1
+	    ;;
+	esac
+
+	force=
+
+	case "$1" in
+	-f|--force)
+	    force=1
 	    shift 1
 	    ;;
 	esac
@@ -431,27 +456,33 @@ TEXT
 		;;  
 	-a|-all)
 		echo -e '\n[Performance]'
+		unset report[@]
 		performance
 		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 		
 		echo -e '\n[Sound]'
+		unset report[@]
 		sound
 		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 		
 		echo -e '\n[Bluetooth]'
+		unset report[@]
 		bluetooth
 		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 		
 		echo -e '\n[Touchpad]'
+		unset report[@]
 		touchpad
 		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 		
 		echo -e '\n[Ethernet]'
+		unset report[@]
 		sudo true
 		ethernet
 		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 		
 		echo -e '\n[Wireless]'
+		unset report[@]
 		wireless
 		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 		;;
