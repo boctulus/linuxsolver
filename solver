@@ -38,7 +38,7 @@ touchpad () {
 	shopt -s nocasematch
 	case $XDG_CURRENT_DESKTOP in
 	     *gnome*) # probar
-				enabled=$(gsettings get org.gnome.desktop.peripherals.touchpad touchpad-enabled)
+				enabled=$(gsettings get org.gnome.desktop.peripherals.touchpad send-events)
 
 				if [[ $enabled == "false" ]]; then
 					push "Habilitando Touchpad (..)"
@@ -54,7 +54,7 @@ touchpad () {
 				fi
 	          	;;
 
-	    *)
+	     *)  # otros escritorios
 
 			if [[ ! -z `which xinput 2>/dev/null` ]]; then
 				local id=$(xinput list | egrep -i 'Touchpad|Synaptics' | awk '{ print $6 }' | cut -c4-6)
