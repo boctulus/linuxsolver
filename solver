@@ -246,7 +246,7 @@ wireless ()
 	blacklist_check
 
 	# USB
-	get_usb_driver "Wireless Network Card"
+	get_usb_driver "Wireless Adapter"
 
 	# No hay driver en uso?
 	if [[ ! -z "$hardware" ]]; then
@@ -255,6 +255,8 @@ wireless ()
 		else
 			push "Driver '$driver_en_uso' en uso para '$hardware' -OK" "v"
 		fi
+	else
+		push "Hardware para adaptador USB no detectado" "v"
 	fi
 
 	# bloqueado ? desbloquear
@@ -370,11 +372,12 @@ get_usb_driver ()
 {
 	local search="$1"
 
-	local raw=$((sudo lsusb -v 2>/dev/null) | egrep -B22 -i "$search")      # revisar  !!!!!!!
-	local id_vendor=$(echo "$raw" | grep idVendor | awk '{print $2}' | cut -dx -f2)
-	local id_product=$(echo "$raw" | grep idProduct | awk '{print $2}' | cut -dx -f2)
+	local id=$((lsusb | grep -i "$search" 2>/dev/null) | grep -o '[0-9a-f]\{4\}:[0-9a-f]\{4\}')
+	local reg=$(sudo lsusb -vd "$id" 2>/dev/null)    
+	local id_vendor=$(echo "$reg" | grep idVendor | awk '{print $2}' | cut -dx -f2)
+	local id_product=$(echo "$reg" | grep idProduct | awk '{print $2}' | cut -dx -f2)
 
-	hardware=$(echo "$raw" | grep iProduct | awk '{print $3}')
+	hardware=$(echo "$reg" | grep iProduct | awk '{print $3}')
 	driver_en_uso=$(usb-devices | grep -A5 "Vendor=$id_vendor ProdID=$id_product" | grep -o Driver=[a-z0-9\-]* | cut -d= -f2)
 }
 
