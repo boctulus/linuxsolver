@@ -96,7 +96,7 @@ rf () {
 	[[ $type == "bluetooth" ]] && pattern='hci'
 
 	declare -a soft_lock
-	declare -a  hard_lock
+	declare -a hard_lock
 
 	IFS=$'\n'; 
 	set -- $(rfkill list); 
@@ -115,7 +115,13 @@ rf () {
 			if [[ ! -z $has_soft_lock  ]]; then
 				if [[ -z $has_hard_lock ]]; then
 					push "Un dispositivo $type (id=$id) bloqueado por soft, desbloqueando (..)"
-					rfkill unblock $id 2>/dev/null
+					rfkill unblock $id 2>/dev/null	
+					sleep 1	
+					if [[ ! -z $(rfkill list | grep -A 2 "$device" | grep -i 'Soft blocked: no') ]]; then 
+						push "Dispositivo $type desbloqueado -OK"
+					else
+						push "Dispositivo $type no pudo ser desbloqueado"
+					fi	
 				else
 					push "Un dispositivo $type (id=$id) bloqueado por hard"
 				fi	
@@ -124,8 +130,8 @@ rf () {
 		i=$i+2
 	done	
 
-	#echo "Soft locks: ${soft_lock[@]}"
-	#echo "Hard locks: ${hard_lock[@]}"
+	[[ "${soft_lock[@]}" -eq 0 ]] && [[ "${hard_lock[@]}" -eq 0 ]] && push "No hay dispositivos $type bloqueados" "v"
+
 }
 
 
