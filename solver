@@ -15,6 +15,7 @@ LANG=en_US.UTF-8
 ### Solvers
 #
 
+
 touchpad_force_reload () 
 {
 	drivers_str=$(lsmod | awk '{print $1 " "}' |  egrep '.*touch.*|.*mouse.*')
@@ -23,7 +24,7 @@ touchpad_force_reload ()
 	set +f; unset IFS
 
 	for driver in $@; do
-		push "Reloading driver $driver,..."
+		push "Recargando driver $driver,..."
 		sudo modprobe -r $driver && sleep 1 && sudo modprobe $driver
 	done
 }
@@ -88,28 +89,43 @@ touchpad () {
 
 
 rf () {
-	# bluetooth|wlan|id
+	# bluetooth|wlan
 	type=$1
 
-	local soft_locked=$(rfkill -r | grep $type | awk '{ print $4 }')
-	local hard_locked=$(rfkill -r | grep $type | awk '{ print $5 }')
+	[[ $type == "wlan" ]] && pattern='phy'
+	[[ $type == "bluetooth" ]] && pattern='hci'
 
-	[[ ! $soft_locked =~ " blocked" ]] && [[ ! $hard_locked =~ " blocked" ]] && push "No hay dispositivos $type bloqueados -OK" "v"
+	declare -a soft_lock
+	declare -a  hard_lock
 
-	if [[ ! "$soft_locked" =~ "unblocked" ]]; then
-		push "Hay un $type bloqueado por soft, desbloqueando (..)"
-		rfkill unblock $type 2>/dev/null
+	IFS=$'\n'; 
+	set -- $(rfkill list); 
 
-		soft_locked=$(rfkill -r | grep $type | awk '{ print $4 }')
-		if [[ ! "$soft_locked" =~ "unblocked" ]]; then
-			push "Algún dispositivo $type bloqueado por soft que no pudo ser desbloqueado"		
-		else	
-			push "Dispositivos $type desbloqueados -OK"
-			
-		fi	
-	fi	
+	argv=($@)
+	for ((i=0;i<$#;i++)); do
+		if [[ "${argv[i]}" =~ "$pattern" ]]; then 
+			device=$(echo "${argv[i]}" | egrep -o "$pattern[0-9]*")
+			id=$(echo "${argv[i]}" | egrep -o '^[0-9]*')
+			has_soft_lock=$(echo "${argv[i+1]}" | grep -o 'yes')
+			has_hard_lock=$(echo "${argv[i+2]}" | grep -o 'yes')
 
-	[[ ! "$hard_locked" =~ "unblocked" ]] && push "Hay un $type bloqueado por hard"
+			[[ ! -z $has_soft_lock ]] && soft_lock=("${soft_lock[@]}" "$id")	
+			[[ ! -z $has_hard_lock ]] && hard_lock=("${hard_lock[@]}" "$id")
+
+			if [[ ! -z $has_soft_lock  ]]; then
+				if [[ -z $has_hard_lock ]]; then
+					push "Un dispositivo $type (id=$id) bloqueado por soft, desbloqueando (..)"
+					rfkill unblock $id 2>/dev/null
+				else
+					push "Un dispositivo $type (id=$id) bloqueado por hard"
+				fi	
+			fi
+		fi
+		i=$i+2
+	done	
+
+	#echo "Soft locks: ${soft_lock[@]}"
+	#echo "Hard locks: ${hard_lock[@]}"
 }
 
 
@@ -404,7 +420,7 @@ options ()
 	Display or solve hardware configuration issues
 
 	Options:
-	 -v, --verbose                  shows detailed information
+	 -v, --verbose                  show detailed information
 	 -f, --force                    force to solve when it's possible
 
 	 -i, --interactive              interactive mode (menu)
@@ -525,7 +541,7 @@ TEXT
 }
 
 key () {
-	echo -e "\nPresiona enter para continuar..."
+	echo -e "\nPresione Enter para continuar..."
 	read tecla
 }
 
@@ -534,7 +550,7 @@ menu () {
 	while :
 	do
 		clear
-		echo " Escoja una opcion "
+		echo " Escoja una opción "
 		echo "==================="
 		echo "1. Verificar problemas de rendimiento"
 		echo "2. Verificar touchpad"
@@ -543,7 +559,7 @@ menu () {
 		echo "5. Problemas con bluetooth"
 		echo "6. Problemas de sonido"
 		echo "7. Salir del programa"
-		echo -en "\nSeleccione una opcion [1 - 7] "
+		echo -en "\nSeleccione una opción [1 - 7] "
 		read opcion
 		echo
 			case $opcion in
@@ -567,7 +583,7 @@ menu () {
 				key;;
 			7) 	exit 0
 				key;;
-			*) 	echo "'$opcion' es una opcion invalida."
+			*) 	echo "'$opcion' es una opción invalida."
 				key;;
 			esac
 		unset report[@] # Reinicia variable
