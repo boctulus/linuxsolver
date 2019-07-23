@@ -271,7 +271,7 @@ wireless ()
 	local downs=0
 	local fails=0
 	for interface in $interfaces; do
-		in_array $interface "${interfaces_up[@]}"
+		in_array $interface interfaces_up
 		if [[ $? -ne 0 ]]; then
 			msg "Interfaz $interface está apagada, encendiendo (..)"
 			(( downs++ ))
@@ -435,18 +435,21 @@ rf () {
 # @return integer 0/1 según sea éxito o fracaso
 #
 in_array () {
-	(( $# != 2 )) && return 1	
+	[[ $# -lt 2 ]] && return 1
 
+	local elem=$1
+	local arr_name=$2
+	local _arr
 	local x
 
-	entry=$1
-	shift 1
-	array=( "$@" )
-	[ -z "${array}" ] && return 1
-	[ -z "${entry}" ] && return 1
+	str='_arr="${'
+	str+=$arr_name
+	str+='[@]}"'
 
-	for x in ${array[@]}; do
-	[ "${x}" == "${entry}" ] && return 0
+	eval $str
+
+	for x in $_arr; do
+		[ "${x}" == "$elem" ] && return 0
 	done
 
 	return 1
@@ -543,7 +546,7 @@ blacklist_check ()
 
 		# Verifico que ningún driver esté blacklisted
 		for driver in "${driver_list[@]}"; do
-			in_array "$driver" "${blacklist[@]}"
+			in_array "$driver" blacklist
 			[[ $? -eq 0 ]] && { blacklisted=1; msg "Driver $driver está en blacklist"; }
 		done	
 		[[ $blacklisted -eq 0 ]] && msg "No hay drivers en blacklist -OK" "v"
