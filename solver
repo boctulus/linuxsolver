@@ -17,12 +17,12 @@ LANG=en_US.UTF-8
 
 touchpad_force_reload () 
 {
-	drivers_str=$(lsmod | awk '{print $1 " "}' |  egrep '.*touch.*|.*mouse.*')
-	set -f; IFS=$'\n'
-	set -- $drivers_str
-	set +f; unset IFS
+	local drivers_str=$(lsmod | awk '{print $1 " "}' |  egrep '.*touch.*|.*mouse.*')
+	declare -a local drivers
+	
+	explode drivers_str ENTER drivers
 
-	for driver in $@; do
+	for driver in "${drivers[@]}"; do
 		msg "Recargando driver $driver,..."
 		sudo modprobe -r $driver && sleep 1 && sudo modprobe $driver
 	done
@@ -431,7 +431,7 @@ rf () {
 # Busca un elemento en un arreglo
 #
 # @param string elemento_a_buscar	
-# @param array 
+# @param string array_name
 # @return integer 0/1 según sea éxito o fracaso
 #
 in_array () {
@@ -484,19 +484,28 @@ push () {
 # @param array 	
 #
 explode () {
-	(( $# != 3 )) && return 1
-
-	local strvar=$1
-	local sep=$2
+	local strvar="$1"
+	local sep="$2"
 	local arrname=$3
 
-	set -f; IFS="$sep" 
-	eval "set -- ${!strvar}"
+	set -f
+	case $2 in
+		ENTER)
+			IFS=$'\n'
+			;;
+		TAB)
+			IFS=$'\t'
+			;;	
+		*)
+			IFS=$2
+			;;	
+	esac		
+	set -- ${!strvar}
 	set +f; unset IFS
 
 	str=$arrname
-	str+='=($@)'
-	eval $str
+	str+='=("$@")'
+	eval "$str"
 }
 
 msg () {
