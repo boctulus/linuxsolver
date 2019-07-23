@@ -23,7 +23,7 @@ touchpad_force_reload ()
 	set +f; unset IFS
 
 	for driver in $@; do
-		push "Recargando driver $driver,..."
+		msg "Recargando driver $driver,..."
 		sudo modprobe -r $driver && sleep 1 && sudo modprobe $driver
 	done
 }
@@ -32,7 +32,7 @@ touchpad_force_reload ()
 touchpad () {
 
 	# Parsear xinput buscando "Touchpad"
-	[[ ! -z `which xinput 2>/dev/null` && -z $(xinput | grep -i touchpad) ]] && push "Touchad no detectado - driver?"
+	[[ ! -z `which xinput 2>/dev/null` && -z $(xinput | grep -i touchpad) ]] && msg "Touchad no detectado - driver?"
 
 	shopt -s nocasematch
 	case $XDG_CURRENT_DESKTOP in
@@ -40,7 +40,7 @@ touchpad () {
 				enabled=$(gsettings get org.gnome.desktop.peripherals.touchpad send-events)
 
 				if [[ $enabled == "false" ]]; then
-					push "Habilitando Touchpad (..)"
+					msg "Habilitando Touchpad (..)"
 					gsettings set org.gnome.desktop.peripherals.touchpad send-events enabled
 				fi
 	          	;;
@@ -48,7 +48,7 @@ touchpad () {
 				enabled=$(gsettings get org.cinnamon.settings-daemon.peripherals.touchpad touchpad-enabled)
 
 				if [[ $enabled == "false" ]]; then
-					push "Habilitando Touchpad (..)"
+					msg "Habilitando Touchpad (..)"
 					gsettings set org.cinnamon.settings-daemon.peripherals.touchpad touchpad-enabled true
 				fi
 	          	;;
@@ -60,7 +60,7 @@ touchpad () {
 				local enabled=$(xinput list-props $id | grep Device\ Enabled | awk '{print $4}')
 
 				if [[ $enabled -eq 0 ]]; then
-					push "Intentando habilitar Touchpad (..)"
+					msg "Intentando habilitar Touchpad (..)"
 					xinput enable "$id"
 					xinput set-prop "$id" "Device Enabled" 1
 				fi
@@ -68,7 +68,7 @@ touchpad () {
 				# Vuelvo a chequear ...
 				enabled=$(xinput list-props $id | grep Device\ Enabled | awk '{print $4}')
 				if [[ $enabled -eq 0 ]]; then
-					push "Touchpad deshabilitado - sin solucionar"
+					msg "Touchpad deshabilitado - sin solucionar"
 				fi	
 			fi
 
@@ -83,7 +83,7 @@ touchpad () {
 
 	# Parsear la linea GRUB_CMDLINE_LINUX_DEFAULT de /etc/default/grub en búsqueda de acpi=off por ejemplo
 	(grep GRUB_CMDLINE_LINUX_DEFAULT /etc/default/grub | egrep '(acpi=off|acpi_os=!)') >/dev/null 2>&1
-	[[ $? -eq 0 ]] && push "ACPI fue deshabilitado: $(grep GRUB_CMDLINE_LINUX_DEFAULT /etc/default/grub)"
+	[[ $? -eq 0 ]] && msg "ACPI fue deshabilitado: $(grep GRUB_CMDLINE_LINUX_DEFAULT /etc/default/grub)"
 }
 
 # -- OK
@@ -107,7 +107,7 @@ sound () {
 	muted=$(pacmd list-sinks | awk '/muted/ { print $2 }')
 	
 	if [[ $muted == 'yes' ]]; then
-		push "Audio: hay un dispositivo 'silenciado', solucionando (..)"
+		msg "Audio: hay un dispositivo 'silenciado', solucionando (..)"
 		amixer -c 0 set Master playback 100% unmute >/dev/null 2>&1
 		sleep 1
 		amixer sset Master unmute >/dev/null 2>&1
@@ -115,9 +115,9 @@ sound () {
 		amixer sset Headphone unmute >/dev/null 2>&1
 
 		muted=$(pacmd list-sinks | awk '/muted/ { print $2 }')
-		[[ $muted == 'no' ]] && push "Audio: dispositivo de audio pudo ser 'unmuted' -OK"
+		[[ $muted == 'no' ]] && msg "Audio: dispositivo de audio pudo ser 'unmuted' -OK"
 	else
-		push "No hay dispositivo de audio 'muted' -OK" "v"
+		msg "No hay dispositivo de audio 'muted' -OK" "v"
 	fi	
 
 	# aplicar algo de esto?
@@ -146,16 +146,16 @@ performance () {
 	# menos de 4Gb libres en /
 	if [[ $free_space_root -le 4000000000 ]]; then 
 		free_space_root_h=${free_space_root_h/}
-		push "Poco espacio ($free_space_root_h) en partición root"
+		msg "Poco espacio ($free_space_root_h) en partición root"
 	else
-		push "$free_space_root_h en partición root" "v"
+		msg "$free_space_root_h en partición root" "v"
 	fi	
 	
 	# Menos de 150Kb libres de RAM
 	if [[ $mem_ava -le 150000 ]]; then
-		push "Memoria disponible insuficiente ($mem_ava kb)"
+		msg "Memoria disponible insuficiente ($mem_ava kb)"
 	else
-		push "$mem_ava kb de RAM disponible" "v"
+		msg "$mem_ava kb de RAM disponible" "v"
 	fi	
 }
 
@@ -177,17 +177,17 @@ ethernet ()
 	local downs=0
 	for interface in $interfaces; do
 		if [[ -z $(sudo ip address show $interface | grep "UP>") ]]; then
-			push "Interfaz $interface está apagada, encendiendo (..)"
+			msg "Interfaz $interface está apagada, encendiendo (..)"
 			(( downs++ ))
 			sudo ip link set "$interface" up 2>/dev/null
-			[[ $? -ne 0 ]] && push "Interfaz $interface no se pudo levantar"
+			[[ $? -ne 0 ]] && msg "Interfaz $interface no se pudo levantar"
 		fi
 	done	
 	
 	# Esto también va acá? | LEO: Si, es lo mismo que sea para ethernet que wifi
 	if [[ $downs -gt 0 ]]; then
 		if [[ ! -z $(systemctl list-unit-files | grep network-manager | grep enabled) ]]; then 
-			push "Re-iniciando NetworkManager (..)"
+			msg "Re-iniciando NetworkManager (..)"
 			sudo service network-manager restart
 			sleep 10
 		fi	
@@ -198,36 +198,36 @@ ethernet ()
 		errora=0
 		if [[ $(sudo ip address show $interface | grep "LOWER_UP>") ]]; then
 			# Tiene IP
-			[[ -z $(ip address show $interface | grep "inet " | awk '{print $2}') ]] && push "No se encontro dirección IP para la interfaz: $interface" && (( errora++ ))
+			[[ -z $(ip address show $interface | grep "inet " | awk '{print $2}') ]] && msg "No se encontro dirección IP para la interfaz: $interface" && (( errora++ ))
 
 			# IP/CIDR
 			maskara=$(ip address show $interface | grep "inet " | awk '{print $2}') # Obtiene IP/CIDR
 			maskara=${maskara:(-2)} # Corta el string, dejando los dós digitos de la derecha
-			[[ maskara -eq 0 ]] && { push "No se encontro mascara de red para la interfaz: $interface" && (( errora++ )); }
+			[[ maskara -eq 0 ]] && { msg "No se encontro mascara de red para la interfaz: $interface" && (( errora++ )); }
 
 			# Gateway
-			[[ -z $(ip route show |grep default | awk '{print $3}') ]] && push "No se encontro puerta de enlace para la interfaz: $interface"
+			[[ -z $(ip route show |grep default | awk '{print $3}') ]] && msg "No se encontro puerta de enlace para la interfaz: $interface"
 			gateway=$(ip route show |grep default | awk '{print $3}' | cut -d$'\n' -f1)
 
 			# DNS
 			dns=$(cat /etc/resolv.conf | grep nameserver -m 1 | awk '{print $2}')
-			[[ -z $dns ]] && push "No se encontraron servidores DNS en '/etc/resolv.conf' "
+			[[ -z $dns ]] && msg "No se encontraron servidores DNS en '/etc/resolv.conf' "
 
 			# si errora es igual a 0 hace ping contra el router
 			if [[ $errora -eq 0 ]]; then
-				push "Probando conexion de $interface, espere..."
+				msg "Probando conexion de $interface, espere..."
 				
 				# Ping Gateway
 				myping=$(ping -c3 $gateway | grep "packets transmitted" | awk '{print $4}')
-				[[ myping -eq 0 ]] && push "no hay conexion con el router" || push "Conexion exitosa con el router -OK"
+				[[ myping -eq 0 ]] && msg "no hay conexion con el router" || msg "Conexion exitosa con el router -OK"
 				
 				# Ping DNS
 				myping=$(ping -c5 $dns | grep "packets transmitted" | awk '{print $4}')
-				[[ myping -eq 0 ]] && push "No hay conexion con el servidor DNS" || push "Conexion exitosa con el servidor DNS -OK"
+				[[ myping -eq 0 ]] && msg "No hay conexion con el servidor DNS" || msg "Conexion exitosa con el servidor DNS -OK"
 			fi
 
 		else
-			push "Cable desconectado en interfaz: $interface"
+			msg "Cable desconectado en interfaz: $interface"
 		fi
 	done
 }
@@ -251,12 +251,12 @@ wireless ()
 	# No hay driver en uso?
 	if [[ ! -z "$hardware" ]]; then
 		if [[ -z "$driver_en_uso" ]]; then
-			push "Wireless USB: no hay driver para $hardware"
+			msg "Wireless USB: no hay driver para $hardware"
 		else
-			push "Driver '$driver_en_uso' en uso para '$hardware' -OK" "v"
+			msg "Driver '$driver_en_uso' en uso para '$hardware' -OK" "v"
 		fi
 	else
-		push "Hardware para adaptador USB no detectado" "v"
+		msg "Hardware para adaptador USB no detectado" "v"
 	fi
 
 	# bloqueado ? desbloquear
@@ -266,17 +266,17 @@ wireless ()
 	local interfaces=$(cat /proc/net/dev | grep -o w[a-z0-9]*: | cut -d':' -f1)
 	local interfaces_up=$(cat /proc/net/wireless | awk '/:/  {print $1}' | cut -d':' -f1)
 
-	[[ "${#interfaces[@]}" -eq 0 ]] && push "No se encontraron interfaces de red wireless"
+	[[ "${#interfaces[@]}" -eq 0 ]] && msg "No se encontraron interfaces de red wireless"
 
 	local downs=0
 	local fails=0
 	for interface in $interfaces; do
 		in_array $interface "${interfaces_up[@]}"
 		if [[ $? -ne 0 ]]; then
-			push "Interfaz $interface está apagada, encendiendo (..)"
+			msg "Interfaz $interface está apagada, encendiendo (..)"
 			(( downs++ ))
 			sudo ip link set "$interface" up 2>/dev/null
-			[[ $? -ne 0 ]] && { ((fails++)) && push "Interfaz $interface no se pudo levantar"; }
+			[[ $? -ne 0 ]] && { ((fails++)) && msg "Interfaz $interface no se pudo levantar"; }
 		fi
 	done	
 
@@ -284,7 +284,7 @@ wireless ()
 
 	if [[ $downs -gt 0 ]]; then
 		if [[ ! -z $(systemctl list-unit-files | grep network-manager | grep enable ) ]]; then
-			push "Re-iniciando NetworkManager (..)"
+			msg "Re-iniciando NetworkManager (..)"
 			sudo service network-manager restart
 			sleep 10
 		fi	
@@ -296,39 +296,39 @@ wireless ()
 		errora=0
 		if [[ $(sudo ip address show $interface | grep "LOWER_UP>") ]]; then
 			# Tiene IP
-			[[ -z $(ip address show $interface | grep "inet " | awk '{print $2}') ]] && push "No se encontro dirección IP para la interfaz: $interface" && (( errora++ ))
+			[[ -z $(ip address show $interface | grep "inet " | awk '{print $2}') ]] && msg "No se encontro dirección IP para la interfaz: $interface" && (( errora++ ))
 
 			# IP/CIDR
 			maskara=$(ip address show $interface | grep "inet " | awk '{print $2}') # Obtiene IP/CIDR
 			maskara=${maskara:(-2)} # Corta el string, dejando los dós digitos de la derecha
-			[[ maskara -eq 0 ]] && { push "No se encontro mascara de red para la interfaz: $interface" && (( errora++ )); }
+			[[ maskara -eq 0 ]] && { msg "No se encontro mascara de red para la interfaz: $interface" && (( errora++ )); }
 
 			# Gateway
-			[[ -z $(ip route show |grep default | awk '{print $3}') ]] && push "No se encontro puerta de enlace para la interfaz: $interface"
+			[[ -z $(ip route show |grep default | awk '{print $3}') ]] && msg "No se encontro puerta de enlace para la interfaz: $interface"
 			gateway=$(ip route show |grep default | awk '{print $3}' | cut -d$'\n' -f1) 
 
 			# DNS
 			dns=$(cat /etc/resolv.conf | grep nameserver -m 1 | awk '{print $2}')
-			[[ -z $dns ]] && push "No se encontraron servidores DNS en '/etc/resolv.conf' "
+			[[ -z $dns ]] && msg "No se encontraron servidores DNS en '/etc/resolv.conf' "
 
 			# si errora es igual a 0 hace ping contra router y DNS
 			if [[ $errora -eq 0 ]]; then
-				push "Probando conexion de $interface, espere..."
+				msg "Probando conexion de $interface, espere..."
 
 				# Ping Gateway
 				myping=$(ping -c3 $gateway | grep "packets transmitted" | awk '{print $4}')
-				[[ $myping -eq 0 ]] && push "No hay conexion con el router" || push "Conexion exitosa con el router -OK"
+				[[ $myping -eq 0 ]] && msg "No hay conexion con el router" || msg "Conexion exitosa con el router -OK"
 				
 				# Ping DNS
 				if [[ $dns_tested == "false" ]]; then	# testeo el DNS Server una sola vez
 					myping=$(ping -c5 $dns | grep "packets transmitted" | awk '{print $4}')
-					[[ $myping -eq 0 ]] && push "No hay conexion con el servidor DNS" || push "Conexion exitosa con el servidor DNS -OK"
+					[[ $myping -eq 0 ]] && msg "No hay conexion con el servidor DNS" || msg "Conexion exitosa con el servidor DNS -OK"
 					dns_tested=true
 				fi	
 			fi
 
 		else
-			push "Sin conexión WiFi en: $interface"
+			msg "Sin conexión WiFi en: $interface"
 		fi
 	done
 }
@@ -336,7 +336,7 @@ wireless ()
 
 video () 
 {
-	push 'No implementado (aún)'
+	msg 'No implementado (aún)'
 	return
 
 	######################
@@ -359,7 +359,7 @@ get_pci_driver ()
 {
 	local search="$1"
 
-	local addr=$(lspci | egrep -i "$search" | grep -o '[0-9]\{2\}:[0-9a-f]\{2\}.[0-9a-f]')
+	local addr=$(lspci | grep -i "$search" | grep -o '[0-9]\{2\}:[0-9a-f]\{2\}.[0-9a-f]')
 	[[ -z $addr ]] && return
 	local reg=$(lspci -vs "$addr")
 
@@ -407,31 +407,24 @@ rf () {
 
 			if [[ ! -z $has_soft_lock  ]]; then
 				if [[ -z $has_hard_lock ]]; then
-					push "Un dispositivo $type (id=$id) bloqueado por soft, desbloqueando (..)"
+					msg "Un dispositivo $type (id=$id) bloqueado por soft, desbloqueando (..)"
 					rfkill unblock $id 2>/dev/null	
 					sleep 1	
 					if [[ ! -z $(rfkill list | grep -A 2 "$device" | grep -i 'Soft blocked: no') ]]; then 
-						push "Dispositivo $type desbloqueado -OK"
+						msg "Dispositivo $type desbloqueado -OK"
 					else
-						push "Dispositivo $type no pudo ser desbloqueado"
+						msg "Dispositivo $type no pudo ser desbloqueado"
 					fi	
 				else
-					push "Un dispositivo $type (id=$id) bloqueado por hard"
+					msg "Un dispositivo $type (id=$id) bloqueado por hard"
 				fi	
 			fi
 		fi
 		i=$i+2
 	done	
 
-	[[ "${soft_lock[@]}" -eq 0 ]] && [[ "${hard_lock[@]}" -eq 0 ]] && push "No hay dispositivos $type bloqueados" "v"
+	[[ "${soft_lock[@]}" -eq 0 ]] && [[ "${hard_lock[@]}" -eq 0 ]] && msg "No hay dispositivos $type bloqueados" "v"
 
-}
-
-push () {
-	if [[ "$2" != "v" ]] || [[ "$2" == "v" && $verbose -eq 1 ]]; then
-		report=("${report[@]}" "$1")
-		echo "$1"
-	fi
 }
 
 in_array () {
@@ -448,6 +441,26 @@ in_array () {
   done
   
   return 1
+}
+
+push () {
+	local arr_name=$1
+	local str
+
+	# array=("${array[@]}" "$2")
+	str=$arr_name 
+	str+='=("${'
+	str+=$arr_name
+	str+='[@]}" "$2")'
+
+	eval $str
+}
+
+msg () {
+	if [[ "$2" != "v" ]] || [[ "$2" == "v" && $verbose -eq 1 ]]; then
+		push report $1
+		echo "$1"
+	fi
 }
 
 # Sistema de paquetes utilizado, distribución, etc
@@ -479,23 +492,23 @@ blacklist () {
 blacklist_check ()
 {
 	if [[ -z $drivers ]]; then
-		push "No hay drivers para $hardware"
+		msg "No hay drivers para $hardware"
 	else
-		push "Drivers '${drivers[@]}' para '$hardware'" "v"
+		msg "Drivers '${drivers[@]}' para '$hardware'" "v"
 	fi 
 
 	# No hay driver en uso?
 	if [[ -z "$driver_en_uso" ]]; then
-		push "No hay driver activo"
+		msg "No hay driver activo"
 
 		# Verifico que ningún driver esté blacklisted
 		for driver in "${driver_list[@]}"; do
 			in_array "$driver" "${blacklist[@]}"
-			[[ $? -eq 0 ]] && { blacklisted=1; push "Driver $driver está en blacklist"; }
+			[[ $? -eq 0 ]] && { blacklisted=1; msg "Driver $driver está en blacklist"; }
 		done	
-		[[ $blacklisted -eq 0 ]] && push "No hay drivers en blacklist -OK" "v"
+		[[ $blacklisted -eq 0 ]] && msg "No hay drivers en blacklist -OK" "v"
 	else 
-		push "Driver '$driver_en_uso' en uso para '$hardware' -OK" "v"		
+		msg "Driver '$driver_en_uso' en uso para '$hardware' -OK" "v"		
 	fi
 }
 
@@ -616,6 +629,7 @@ TEXT
 		menu
 		;;  
 	-a|-all)
+		sudo true
 		echo -e '\n[Performance]'
 		unset report[@]
 		performance
@@ -638,7 +652,6 @@ TEXT
 		
 		echo -e '\n[Ethernet]'
 		unset report[@]
-		sudo true
 		ethernet
 		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 		
@@ -689,7 +702,7 @@ TEXT
 	esac
 }
 
-describe ; [[ -z $pkgm ]] && push "Package management desconocido"
+describe ; [[ -z $pkgm ]] && msg "Package management desconocido"
 blacklist
 
 
