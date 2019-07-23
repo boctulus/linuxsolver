@@ -427,39 +427,79 @@ rf () {
 
 }
 
+#
+# Busca un elemento en un arreglo
+#
+# @param string elemento_a_buscar	
+# @param array 
+# @return integer 0/1 según sea éxito o fracaso
+#
 in_array () {
-  local x
+	(( $# != 2 )) && return 1	
 
-  entry=$1
-  shift 1
-  array=( "$@" )
-  [ -z "${array}" ] && return 1
-  [ -z "${entry}" ] && return 1
-  
-  for x in ${array[@]}; do
-    [ "${x}" == "${entry}" ] && return 0
-  done
-  
-  return 1
+	local x
+
+	entry=$1
+	shift 1
+	array=( "$@" )
+	[ -z "${array}" ] && return 1
+	[ -z "${entry}" ] && return 1
+
+	for x in ${array[@]}; do
+	[ "${x}" == "${entry}" ] && return 0
+	done
+
+	return 1
 }
 
+#
+# Empuja un elemento a un array
+#
+# @param string elemento
+# @param string nombre_array
+#
 push () {
-	local arr_name=$1
+	(( $# != 2 )) && return 1
+
+	local arr_name=$2
 	local str
 
 	# array=("${array[@]}" "$2")
 	str=$arr_name 
 	str+='=("${'
 	str+=$arr_name
-	str+='[@]}" "$2")'
+	str+='[@]}" "$1")'
 
+	eval $str
+}
+
+#
+# Hace un 'split' de un string generando un array (simil explode de php)
+#
+# @param string string_to_explode
+# @param string separator
+# @param array 	
+#
+explode () {
+	(( $# != 3 )) && return 1
+
+	local strvar=$1
+	local sep=$2
+	local arrname=$3
+
+	set -f; IFS="$sep" 
+	eval "set -- ${!strvar}"
+	set +f; unset IFS
+
+	str=$arrname
+	str+='=($@)'
 	eval $str
 }
 
 msg () {
 	if [[ "$2" != "v" ]] || [[ "$2" == "v" && $verbose -eq 1 ]]; then
-		push report $1
-		echo "$1"
+		push "$1" report
+ 		echo "$1"
 	fi
 }
 
