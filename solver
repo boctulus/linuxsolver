@@ -561,6 +561,12 @@ blacklist_check ()
 	# No hay driver en uso?
 	if [[ -z "$driver_en_uso" ]]; then
 		msg "No hay driver activo"
+		if [[ ! -z $drivers ]]; then   # en realidad debería ser un array !!!
+			declare -a local arr 
+			explode "$drivers" ',' arr
+			msg "Cargando driver ${drivers[0]} (..)"
+			sudo modprobe ${drivers[0]}
+		fi
 	else 
 		msg "Driver '$driver_en_uso' en uso para '$hardware' -OK" "v"		
 	fi
