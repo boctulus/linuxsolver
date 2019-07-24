@@ -16,6 +16,11 @@ LANG=en_US.UTF-8
 ### Solvers
 #
 
+#
+# Cambiar la funcion a driver_reload
+#
+#
+
 touchpad_force_reload () 
 {
 	local drivers_str=$(lsmod | awk '{print $1 " "}' |  egrep '.*touch.*|.*mouse.*')
@@ -29,7 +34,10 @@ touchpad_force_reload ()
 	done
 }
 
-# --OK
+
+# Generalizar como se hace con video() 
+# con touch y psmouse
+#
 touchpad () {
 
 	# Parsear xinput buscando "Touchpad"
@@ -96,7 +104,6 @@ bluetooth () {
 # --OK
 sound () {
 	get_pci_driver 'audio'
-
 	blacklist_check
 
 	# muted?
@@ -160,7 +167,6 @@ performance () {
 ethernet () 
 {
 	get_pci_driver 'ethernet'
-
 	blacklist_check
 
 	interfaces=$(ls /sys/class/net | grep '^e.*')
@@ -228,7 +234,6 @@ wireless ()
 {
 	# PCI
 	get_pci_driver 'wireless'
-
 	blacklist_check
 
 	# USB
@@ -539,10 +544,12 @@ blacklist () {
 
 blacklist_check ()
 {
+	echo -e "* $hardware"
+
 	if [[ ${#drivers} -eq 0 ]]; then
 		msg "No hay drivers para $hardware"
 	else
-		msg "Drivers '$drivers_str' para '$hardware'" "v"
+		msg "Drivers instalados: $drivers_str para '$hardware'" "v"
 	fi 
 
 	# No hay driver en uso?
@@ -553,7 +560,7 @@ blacklist_check ()
 			sudo modprobe ${drivers[0]}
 		fi
 	else 
-		msg "Driver '$driver_en_uso' en uso para '$hardware' -OK" "v"		
+		msg "Driver en uso: $driver_en_uso' -OK" "v"		
 	fi
 
 	# Verifico que ningún driver esté blacklisted
@@ -566,8 +573,12 @@ blacklist_check ()
 	if [[ $blacklisted -eq 0 ]]; then
 		msg "No hay drivers en blacklist -OK" "v" 
 	else
-		msg "Blacklisted: ${blk[@]} "	
+		local lista
+		[[ ${#blk[@]} -ne 0 ]] && lista="${blk[@]}" || lista='--'
+		msg "Blacklisted: $lista"	
 	fi	
+
+	echo
 }
 
 
@@ -688,37 +699,37 @@ TEXT
 		;;  
 	-a|-all)
 		sudo true
-		echo -e '\n[Performance]'
+		echo -e '\n---| Performance\n'
 		unset report[@]
 		performance
 		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 		
-		echo -e '\n[Display]'
+		echo -e '\n---| Display\n'
 		unset report[@]
 		video
 		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 
-		echo -e '\n[Sound]'
+		echo -e '\n---| Sound\n'
 		unset report[@]
 		sound
 		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 		
-		echo -e '\n[Bluetooth]'
+		echo -e '\n---| Bluetooth\n'
 		unset report[@]
 		bluetooth
 		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 		
-		echo -e '\n[Touchpad]'
+		echo -e '\n---| Touchpad\n'
 		unset report[@]
 		touchpad
 		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 		
-		echo -e '\n[Ethernet]'
+		echo -e '\n---| Ethernet\n'
 		unset report[@]
 		ethernet
 		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
 		
-		echo -e '\n[Wireless]'
+		echo -e '\n---| Wireless\n'
 		unset report[@]
 		wireless
 		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
