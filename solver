@@ -151,7 +151,7 @@ performance () {
 		free_space_root_h=${free_space_root_h/}
 		msg "Poco espacio ($free_space_root_h) en partición root"
 	else
-		msg "$free_space_root_h en partición root" "v"
+		msg "$free_space_root_h libres en partición root" "v"
 	fi	
 	
 	# Menos de 150Kb libres de RAM
@@ -549,7 +549,7 @@ blacklist_check ()
 	if [[ ${#drivers} -eq 0 ]]; then
 		msg "No hay drivers para $hardware"
 	else
-		msg "Drivers instalados: $drivers_str para '$hardware'" "v"
+		msg "Drivers instalados: $drivers_str para '$hardware'"
 	fi 
 
 	# No hay driver en uso?
@@ -560,7 +560,7 @@ blacklist_check ()
 			sudo modprobe ${drivers[0]}
 		fi
 	else 
-		msg "Driver en uso: $driver_en_uso' -OK" "v"		
+		msg "Driver en uso: $driver_en_uso' -OK" 		
 	fi
 
 	# Verifico que ningún driver esté blacklisted
@@ -571,7 +571,7 @@ blacklist_check ()
 	done	
 
 	if [[ $blacklisted -eq 0 ]]; then
-		msg "No hay drivers en blacklist -OK" "v" 
+		msg "No hay drivers en blacklist -OK" 
 	else
 		local lista
 		[[ ${#blk[@]} -ne 0 ]] && lista="${blk[@]}" || lista='--'
