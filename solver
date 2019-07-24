@@ -2,6 +2,7 @@
 
 declare -a blacklist
 declare -a report
+declare -a drivers
 pkgm=''
 distro=''
 ver='0.1'
@@ -96,11 +97,6 @@ bluetooth () {
 sound () {
 	get_pci_driver 'audio'
 
-	set -f; IFS=',' 
-	set -- $drivers
-	set +f; unset IFS
-	driver_list=($@)
-
 	blacklist_check
 
 	# muted?
@@ -164,11 +160,6 @@ performance () {
 ethernet () 
 {
 	get_pci_driver 'ethernet'
-
-	set -f; IFS=',' 
-	set -- $drivers
-	set +f; unset IFS
-	driver_list=($@)
 
 	blacklist_check
 
@@ -237,11 +228,6 @@ wireless ()
 {
 	# PCI
 	get_pci_driver 'wireless'
-
-	set -f; IFS=',' 
-	set -- $drivers
-	set +f; unset IFS
-	driver_list=($@)
 
 	blacklist_check
 
@@ -336,15 +322,13 @@ wireless ()
 video () 
 {
 	local posibilidades=(vga 3d 2d display)
-	local driver_list
 	local p
 	
 	declare -a local prev
 
 	for p in "${posibilidades[@]}"; do 
 		get_pci_driver $p
-		explode drivers ',' driver_list
-		local d=$(echo "$drivers" | tr ' ' '-')
+		local d=$(echo "$drivers_str" | tr ' ' '-')
 
 		in_array "$d" prev
 		if [[ $? -ne 0 ]]; then
@@ -367,8 +351,10 @@ get_pci_driver ()
 	local reg=$(lspci -vs "$addr")
 
 	hardware=$(echo "$reg" | grep -i 'Subsystem' | cut -d':' -f2 | cut -c2-)
-	drivers=$(echo "$reg"  | grep -i 'Kernel modules:' | cut -d: -f2 | cut -c2-)
+	drivers_str=$(echo "$reg"  | grep -i 'Kernel modules:' | cut -d: -f2 | cut -c2-)
 	driver_en_uso=$(echo "$reg" | grep 'in use:' | cut -d: -f2 | cut -c2-)
+
+	explode drivers_str ',' drivers
 }
 
 get_usb_driver ()
@@ -382,6 +368,7 @@ get_usb_driver ()
 
 	hardware=$(echo "$reg" | grep iProduct | awk '{print $3}')
 	driver_en_uso=$(usb-devices | grep -A5 "Vendor=$id_vendor ProdID=$id_product" | grep -o Driver=[a-z0-9\-]* | cut -d= -f2)
+	drivers=()
 }
 
 rf () {
@@ -552,18 +539,16 @@ blacklist () {
 
 blacklist_check ()
 {
-	if [[ -z $drivers ]]; then
+	if [[ ${#drivers} -eq 0 ]]; then
 		msg "No hay drivers para $hardware"
 	else
-		msg "Drivers '${drivers[@]}' para '$hardware'" "v"
+		msg "Drivers '$drivers_str' para '$hardware'" "v"
 	fi 
 
 	# No hay driver en uso?
 	if [[ -z "$driver_en_uso" ]]; then
 		msg "No hay driver activo"
-		if [[ ! -z $drivers ]]; then   # en realidad debería ser un array !!!
-			declare -a local arr 
-			explode "$drivers" ',' arr
+		if [[ ${#drivers} -ne 0 ]]; then 
 			msg "Cargando driver ${drivers[0]} (..)"
 			sudo modprobe ${drivers[0]}
 		fi
@@ -573,7 +558,7 @@ blacklist_check ()
 
 	# Verifico que ningún driver esté blacklisted
 	declare -a local blk
-	for driver in "${driver_list[@]}"; do
+	for driver in "${drivers[@]}"; do
 		in_array "$driver" blacklist
 		[[ $? -eq 0 ]] && { blacklisted=1; push "$driver" blk; }
 	done	
