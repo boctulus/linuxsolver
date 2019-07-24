@@ -1,7 +1,7 @@
 # linuxsolver
 Linux Solver - Herramienta de diagnóstico para Linux
 
-Linux Solver es un programa de diagnóstico y solucionador de problemas de (configuración de) hardware.
+El programa de diagnóstico (probado en varias distribuciones de Linux) es un solucionador de problemas de (configuración de) hardware.
 
 "solver" está conformado por un conjunto de módulos que intentan responder preguntas (hipótesis) acerca de porque no funciona una pieza de hardware y en muchos casos se intenta solucionarlos.
 
