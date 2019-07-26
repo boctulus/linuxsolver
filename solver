@@ -16,14 +16,9 @@ LANG=en_US.UTF-8
 ### Solvers
 #
 
-#
-# Cambiar la funcion a driver_reload
-#
-#
-
 touchpad_force_reload () 
 {
-	local drivers_str=$(lsmod | awk '{print $1 " "}' |  egrep '.*touch.*|.*mouse.*')
+	local drivers_str=$(lsmod | awk '{print $1 " "}' |  egrep 'touch|mouse|vsxx|cyapa')
 	declare -a local drivers
 	
 	explode drivers_str ENTER drivers
@@ -34,14 +29,13 @@ touchpad_force_reload ()
 	done
 }
 
-
-# Generalizar como se hace con video() 
-# con touch y psmouse
-#
 touchpad () {
 
 	# Parsear xinput buscando "Touchpad"
-	[[ ! -z `which xinput 2>/dev/null` && -z $(xinput | grep -i touchpad) ]] && msg "Touchad no detectado - driver?"
+	if [[ -z $(cat /proc/bus/input/devices | egrep -i 'Touchpad|Synaptics') ]]; then
+		msg "Touchad no detectado - driver?"
+		return
+	fi
 
 	shopt -s nocasematch
 	case $XDG_CURRENT_DESKTOP in
@@ -203,8 +197,8 @@ ethernet ()
 			[[ maskara -eq 0 ]] && { msg "No se encontro mascara de red para la interfaz: $interface" && (( errora++ )); }
 
 			# Gateway
-			[[ -z $(ip route show |grep default | awk '{print $3}') ]] && msg "No se encontro puerta de enlace para la interfaz: $interface"
 			gateway=$(ip route show |grep default | awk '{print $3}' | cut -d$'\n' -f1)
+			[[ -z $gateway ]] && { msg "No se encontro puerta de enlace para la interfaz: $interface"; return; }
 
 			# DNS
 			dns=$(cat /etc/resolv.conf | grep nameserver -m 1 | awk '{print $2}')
@@ -295,8 +289,8 @@ wireless ()
 			[[ maskara -eq 0 ]] && { msg "No se encontro mascara de red para la interfaz: $interface" && (( errora++ )); }
 
 			# Gateway
-			[[ -z $(ip route show |grep default | awk '{print $3}') ]] && msg "No se encontro puerta de enlace para la interfaz: $interface"
-			gateway=$(ip route show |grep default | awk '{print $3}' | cut -d$'\n' -f1) 
+			gateway=$(ip route show |grep default | awk '{print $3}' | cut -d$'\n' -f1)
+			[[ -z $gateway ]] && { msg "No se encontro puerta de enlace para la interfaz: $interface"; return; }
 
 			# DNS
 			dns=$(cat /etc/resolv.conf | grep nameserver -m 1 | awk '{print $2}')
@@ -376,6 +370,32 @@ get_usb_driver ()
 	drivers=()
 }
 
+#
+# @param string archivo
+# @param string separador
+# @param array array_name
+#
+get_registers ()
+{
+	local file=$(cat "$1")
+	local sep="$2"
+	local arrname="$3"
+	local str
+	local f2
+
+	f2=$(echo "${file//$sep/|$'\n'}")
+
+	set +f;
+	IFS='|'
+	set -- $f2
+	set -f;
+	unset IFS
+
+	str="$arrname"
+	str+='=("$@")'
+	eval "$str"
+}
+
 rf () {
 	# bluetooth|wlan
 	type=$1
@@ -424,9 +444,11 @@ rf () {
 
 print_r () {
 	for i in "$@"; do
-		echo "[$i]"
+		echo '----------------------'
+		echo -e "$i"
 	done
 }
+
 
 #
 # Busca un elemento en un arreglo
@@ -703,36 +725,43 @@ TEXT
 		unset report[@]
 		performance
 		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
+		sleep 1
 		
 		echo -e '\n---| Display\n'
 		unset report[@]
 		video
 		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
+		sleep 1
 
 		echo -e '\n---| Sound\n'
 		unset report[@]
 		sound
 		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
+		sleep 1
 		
 		echo -e '\n---| Bluetooth\n'
 		unset report[@]
 		bluetooth
 		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
+		sleep 1
 		
 		echo -e '\n---| Touchpad\n'
 		unset report[@]
 		touchpad
 		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
-		
+		sleep 1
+
 		echo -e '\n---| Ethernet\n'
 		unset report[@]
 		ethernet
 		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
+		sleep 1
 		
 		echo -e '\n---| Wireless\n'
 		unset report[@]
 		wireless
 		[[ "${#report[@]}" -eq 0 ]] && echo 'OK.'
+		sleep 1
 		;;
 	-p|--performance)
 		performance
