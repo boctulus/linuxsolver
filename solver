@@ -18,14 +18,21 @@ LANG=en_US.UTF-8
 
 touchpad_force_reload () 
 {
-	local drivers_str=$(lsmod | awk '{print $1 " "}' |  egrep 'touch|mouse|vsxx|cyapa')
+	declare -a posibilidades
 	declare -a local drivers
-	
-	explode drivers_str ENTER drivers
 
-	for driver in "${drivers[@]}"; do
-		msg "Recargando driver $driver,..."
-		sudo modprobe -r $driver && sleep 1 && sudo modprobe $driver
+	explode 'touch|mouse|vsxx|cyapa' '|' posibilidades
+
+	[[ ${#posibilidades} -eq 0 ]] && { echo 'Touchpad: no se encontró driver'; return; }
+
+	for posibilidad in "${posibilidades[@]}"; do
+		local driver=$(lsmod | awk '{print $1 " "}' |  grep -i "$posibilidad")
+
+		if [[ ! -z "$driver" ]]; then
+			msg "Recargando driver $driver,..."
+			sudo modprobe -r $driver && sleep 1 && sudo modprobe $driver
+			break
+		fi
 	done
 }
 
@@ -523,7 +530,7 @@ explode () {
 			IFS=$2
 			;;	
 	esac		
-	set -- ${!strvar}
+	set -- $strvar
 	set +f; unset IFS
 
 	str=$arrname
