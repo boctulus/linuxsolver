@@ -18,7 +18,7 @@ LANG=en_US.UTF-8
 
 touchpad_force_reload () 
 {
-	declare -a posibilidades
+	declare -a local posibilidades
 	declare -a local drivers
 
 	explode 'touch|mouse|vsxx|cyapa' '|' posibilidades
@@ -230,7 +230,13 @@ ethernet ()
 	done
 }
 
+#
 # Detectar errores de wifi
+#
+# TODO: 
+# https://ubuntuforums.org/showthread.php?t=2239747
+#
+#
 wireless () 
 {
 	# PCI
