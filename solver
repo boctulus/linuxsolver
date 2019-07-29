@@ -164,6 +164,42 @@ performance () {
 }
 
 
+dns_check () {
+	declare -a local dns
+	local dnss_str 
+
+	if [[ $(systemctl is-enabled network-manager) == 'enabled' ]]; then
+		dnss_str=$(nmcli dev show | grep DNS | awk '{print $2}')				
+	else
+		dnss_str=$(grep nameserver /etc/resolv.conf | awk '{print $2}')
+	fi
+
+	if [[ -z "$dnss_str" ]]; then 
+		msg "No se encontraron servidores DNS'"
+		return 1
+	else
+		explode "$dnss_str" $'\n' dnss
+	fi
+
+	return 0
+}
+
+dns_ping () {
+	if [[ $dns_tested == "false" ]]; then	# testeo el DNS Server una sola vez
+		for dns in "${dnss[@]}"; do
+			myping=$(ping -c5 $dns | grep "packets transmitted" | awk '{print $4}')
+
+			if [[ $myping -eq 0 ]]; then
+				msg "    No hay conexion con el servidor DNS $dns"
+			else
+				 msg "    Conexion exitosa con el servidor DNS $dns -OK"
+			fi	 
+			
+			dns_tested=true
+		done
+	fi	
+}
+
 # Detectar errores de Ethernet
 ethernet () 
 {
@@ -182,10 +218,9 @@ ethernet ()
 		fi
 	done	
 	
-	# Esto también va acá? | LEO: Si, es lo mismo que sea para ethernet que wifi
 	if [[ $downs -gt 0 ]]; then
 		if [[ ! -z $(systemctl list-unit-files | grep network-manager | grep enabled) ]]; then 
-			msg "Re-iniciando NetworkManager (..)"
+			msg "    Re-iniciando NetworkManager (..)"
 			sudo service network-manager restart
 			sleep 10
 		fi	
@@ -194,38 +229,38 @@ ethernet ()
 	#si tiene conexion al medio (cable) hacer:
 	for interface in $interfaces; do
 		errora=0
+		msg "* Intefaz $interface\n"
+
 		if [[ $(sudo ip address show $interface | grep "LOWER_UP>") ]]; then
 			# Tiene IP
-			[[ -z $(ip address show $interface | grep "inet " | awk '{print $2}') ]] && msg "No se encontro dirección IP para la interfaz: $interface" && (( errora++ ))
+			[[ -z $(ip address show $interface | grep "inet " | awk '{print $2}') ]] && msg "    No se encontro dirección IP para la interfaz: $interface" && (( errora++ ))
 
 			# IP/CIDR
 			maskara=$(ip address show $interface | grep "inet " | awk '{print $2}') # Obtiene IP/CIDR
 			maskara=${maskara:(-2)} # Corta el string, dejando los dós digitos de la derecha
-			[[ maskara -eq 0 ]] && { msg "No se encontro mascara de red para la interfaz: $interface" && (( errora++ )); }
+			[[ maskara -eq 0 ]] && { msg "    No se encontro mascara de red para la interfaz: $interface" && (( errora++ )); }
 
 			# Gateway
 			gateway=$(ip route show |grep default | awk '{print $3}' | cut -d$'\n' -f1)
-			[[ -z $gateway ]] && { msg "No se encontro puerta de enlace para la interfaz: $interface"; return; }
+			[[ -z $gateway ]] && { msg "    No se encontro puerta de enlace para la interfaz: $interface"; return; }
 
 			# DNS
-			dns=$(cat /etc/resolv.conf | grep nameserver -m 1 | awk '{print $2}')
-			[[ -z $dns ]] && msg "No se encontraron servidores DNS en '/etc/resolv.conf' "
+			dns_check
 
 			# si errora es igual a 0 hace ping contra el router
 			if [[ $errora -eq 0 ]]; then
-				msg "Probando conexion de $interface, espere..."
+				msg "    Probando conexion de $interface, espere..."
 				
 				# Ping Gateway
 				myping=$(ping -c3 $gateway | grep "packets transmitted" | awk '{print $4}')
-				[[ myping -eq 0 ]] && msg "no hay conexion con el router" || msg "Conexion exitosa con el router -OK"
+				[[ myping -eq 0 ]] && msg "    No hay conexion con el router" || msg "    Conexion exitosa con el gw $gateway -OK"
 				
 				# Ping DNS
-				myping=$(ping -c5 $dns | grep "packets transmitted" | awk '{print $4}')
-				[[ myping -eq 0 ]] && msg "No hay conexion con el servidor DNS" || msg "Conexion exitosa con el servidor DNS -OK"
+				dns_ping
 			fi
 
 		else
-			msg "Cable desconectado en interfaz: $interface"
+			msg "    Cable desconectado en interfaz: $interface"
 		fi
 	done
 }
@@ -269,12 +304,14 @@ wireless ()
 	local downs=0
 	local fails=0
 	for interface in $interfaces; do
+		msg "* Intefaz $interface\n"
+
 		in_array $interface interfaces_up
 		if [[ $? -ne 0 ]]; then
-			msg "Interfaz $interface está apagada, encendiendo (..)"
+			msg "    Interfaz $interface está apagada, encendiendo (..)"
 			(( downs++ ))
 			sudo ip link set "$interface" up 2>/dev/null
-			[[ $? -ne 0 ]] && { ((fails++)) && msg "Interfaz $interface no se pudo levantar"; }
+			[[ $? -ne 0 ]] && { ((fails++)) && msg "    Interfaz $interface no se pudo levantar"; }
 		fi
 	done	
 
@@ -282,7 +319,7 @@ wireless ()
 
 	if [[ $downs -gt 0 ]]; then
 		if [[ ! -z $(systemctl list-unit-files | grep network-manager | grep enable ) ]]; then
-			msg "Re-iniciando NetworkManager (..)"
+			msg "    Re-iniciando NetworkManager (..)"
 			sudo service network-manager restart
 			sleep 10
 		fi	
@@ -294,39 +331,34 @@ wireless ()
 		errora=0
 		if [[ $(sudo ip address show $interface | grep "LOWER_UP>") ]]; then
 			# Tiene IP
-			[[ -z $(ip address show $interface | grep "inet " | awk '{print $2}') ]] && msg "No se encontro dirección IP para la interfaz: $interface" && (( errora++ ))
+			[[ -z $(ip address show $interface | grep "inet " | awk '{print $2}') ]] && msg "    No se encontro dirección IP para la interfaz: $interface" && (( errora++ ))
 
 			# IP/CIDR
 			maskara=$(ip address show $interface | grep "inet " | awk '{print $2}') # Obtiene IP/CIDR
 			maskara=${maskara:(-2)} # Corta el string, dejando los dós digitos de la derecha
-			[[ maskara -eq 0 ]] && { msg "No se encontro mascara de red para la interfaz: $interface" && (( errora++ )); }
+			[[ maskara -eq 0 ]] && { msg "    No se encontro mascara de red para la interfaz: $interface" && (( errora++ )); }
 
 			# Gateway
 			gateway=$(ip route show |grep default | awk '{print $3}' | cut -d$'\n' -f1)
-			[[ -z $gateway ]] && { msg "No se encontro puerta de enlace para la interfaz: $interface"; return; }
+			[[ -z $gateway ]] && { msg "    No se encontro puerta de enlace para la interfaz: $interface"; return; }
 
 			# DNS
-			dns=$(cat /etc/resolv.conf | grep nameserver -m 1 | awk '{print $2}')
-			[[ -z $dns ]] && msg "No se encontraron servidores DNS en '/etc/resolv.conf' "
+			dns_check
 
 			# si errora es igual a 0 hace ping contra router y DNS
 			if [[ $errora -eq 0 ]]; then
-				msg "Probando conexion de $interface, espere..."
+				msg "    Probando conexion de $interface, espere..."
 
 				# Ping Gateway
 				myping=$(ping -c3 $gateway | grep "packets transmitted" | awk '{print $4}')
-				[[ $myping -eq 0 ]] && msg "No hay conexion con el router" || msg "Conexion exitosa con el router -OK"
+				[[ $myping -eq 0 ]] && msg "    No hay conexion con el gw $gateway" || msg "    Conexion exitosa con el gw $gateway -OK"
 				
 				# Ping DNS
-				if [[ $dns_tested == "false" ]]; then	# testeo el DNS Server una sola vez
-					myping=$(ping -c5 $dns | grep "packets transmitted" | awk '{print $4}')
-					[[ $myping -eq 0 ]] && msg "No hay conexion con el servidor DNS" || msg "Conexion exitosa con el servidor DNS -OK"
-					dns_tested=true
-				fi	
+				dns_ping
 			fi
 
 		else
-			msg "Sin conexión WiFi en: $interface"
+			msg "    Sin conexión WiFi en: $interface"
 		fi
 	done
 }
@@ -547,7 +579,7 @@ explode () {
 msg () {
 	if [[ "$2" != "v" ]] || [[ "$2" == "v" && $verbose -eq 1 ]]; then
 		push "$1" report
- 		echo "$1"
+ 		echo -e "$1"
 	fi
 }
 
@@ -579,23 +611,23 @@ blacklist () {
 
 blacklist_check ()
 {
-	echo -e "* $hardware"
+	echo -e "\n* $hardware\n"
 
 	if [[ ${#drivers} -eq 0 ]]; then
-		msg "No hay drivers para $hardware"
+		msg "    No hay drivers para $hardware"
 	else
-		msg "Drivers instalados: $drivers_str para '$hardware'"
+		msg "    Drivers instalados: $drivers_str para '$hardware'"
 	fi 
 
 	# No hay driver en uso?
 	if [[ -z "$driver_en_uso" ]]; then
-		msg "No hay driver activo"
+		msg "    No hay driver activo"
 		if [[ ${#drivers} -ne 0 ]]; then 
-			msg "Cargando driver ${drivers[0]} (..)"
+			msg "    Cargando driver ${drivers[0]} (..)"
 			sudo modprobe ${drivers[0]}
 		fi
 	else 
-		msg "Driver en uso: $driver_en_uso' -OK" 		
+		msg "    Driver en uso: $driver_en_uso' -OK" 		
 	fi
 
 	# Verifico que ningún driver esté blacklisted
@@ -606,11 +638,11 @@ blacklist_check ()
 	done	
 
 	if [[ $blacklisted -eq 0 ]]; then
-		msg "No hay drivers en blacklist -OK" 
+		msg "    No hay drivers en blacklist -OK" 
 	else
 		local lista
 		[[ ${#blk[@]} -ne 0 ]] && lista="${blk[@]}" || lista='--'
-		msg "Blacklisted: $lista"	
+		msg "    Blacklisted: $lista"	
 	fi	
 
 	echo
