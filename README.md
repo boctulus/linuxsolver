@@ -19,7 +19,6 @@ Instalación:
 
 	git clone https://github.com/boctulus/linuxsolver.git
 	cd linuxsolver
-	chmod +x solver
 
 Ejecución:
 

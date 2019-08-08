@@ -187,16 +187,17 @@ dns_check () {
 dns_ping () {
 	if [[ $dns_tested == "false" ]]; then	# testeo el DNS Server una sola vez
 		for dns in "${dnss[@]}"; do
-			myping=$(ping -c5 $dns | grep "packets transmitted" | awk '{print $4}')
-
-			if [[ $myping -eq 0 ]]; then
+			
+			if [[ $(ping -c5 $dns | grep -o '[1-5] received' | cut -d' ' -f1) -eq 0 ]]; then
 				msg "    No hay conexion con el servidor DNS $dns"
 			else
 				 msg "    Conexion exitosa con el servidor DNS $dns -OK"
+				 dns_tested=true
+				 break
 			fi	 
-			
-			dns_tested=true
+		
 		done
+		dns_tested=true
 	fi	
 }
 
@@ -264,6 +265,15 @@ ethernet ()
 		fi
 	done
 }
+
+
+#
+#
+# Tanto para WiFi como Ethernet es posible obtener
+#
+# driverversion y firmware
+#
+# sudo lshw -C network
 
 #
 # Detectar errores de wifi
