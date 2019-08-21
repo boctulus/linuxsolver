@@ -27,5 +27,5 @@ Ejecución:
 	./solver
 	
 
-Se aceptan "pull requests" 
+Se aceptan "pull requests". 
 
