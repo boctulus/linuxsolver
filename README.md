@@ -18,7 +18,6 @@ Módulos disponibles:
 Instalación:
 
     git clone https://github.com/boctulus/linuxsolver.git
-    cd linuxsolver
     sudo ln -s $(pwd)/solver /usr/bin
 	
 
