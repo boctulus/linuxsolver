@@ -716,6 +716,7 @@ menu () {
 options () 
 {
 	help=$(cat <<-TEXT
+	LINUX SOLVER ver ${ver}
 
 	Usage:
 	 $(basename $0) [-v] [-f] <options>
@@ -736,11 +737,25 @@ options ()
 	 -p, --performance              check why computer can be running slow
 	 -s, --sound                    sound tests 
 
+	 -c, --credits                  authors
 	 -h, --help                     display this help
 	 -V, --version                  display version
 
+
 TEXT
 )
+
+
+	credits=$(cat <<-TEXT
+	Credits:
+	 
+	 Pablo Bozzolo <boctulus>
+	 Leonardo D'Ulivo <ldulivo>
+
+	 https://github.com/boctulus/linuxsolver
+
+TEXT
+)	 
 
 	verbose=
 
@@ -771,6 +786,10 @@ TEXT
 		echo -e "$help"
 		return
 		;;
+	-c|--credits)
+		echo -e "$credits"
+		return
+		;;	
 	-i|--interactive)
 		menu
 		;;  
