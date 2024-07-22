@@ -29,7 +29,7 @@ touchpad_force_reload ()
 		local driver=$(lsmod | awk '{print $1 " "}' |  grep -i "$posibilidad")
 
 		if [[ ! -z "$driver" ]]; then
-			msg "Recargando driver $driver,..."
+			msg "Reloading driver $driver,..."
 			sudo modprobe -r $driver && sleep 1 && sudo modprobe $driver
 			break
 		fi
@@ -40,7 +40,7 @@ touchpad () {
 
 	# Parsear xinput buscando "Touchpad"
 	if [[ -z $(cat /proc/bus/input/devices | egrep -i 'Touchpad|Synaptics') ]]; then
-		msg "Touchad no detectado - driver?"
+		msg "Touchad undetected - driver?"
 		return
 	fi
 
@@ -50,7 +50,7 @@ touchpad () {
 				enabled=$(gsettings get org.gnome.desktop.peripherals.touchpad send-events)
 
 				if [[ $enabled == "false" ]]; then
-					msg "Habilitando Touchpad (..)"
+					msg "Enabling Touchpad (..)"
 					gsettings set org.gnome.desktop.peripherals.touchpad send-events enabled
 				fi
 	          	;;
@@ -58,7 +58,7 @@ touchpad () {
 				enabled=$(gsettings get org.cinnamon.settings-daemon.peripherals.touchpad touchpad-enabled)
 
 				if [[ $enabled == "false" ]]; then
-					msg "Habilitando Touchpad (..)"
+					msg "Enabling Touchpad (..)"
 					gsettings set org.cinnamon.settings-daemon.peripherals.touchpad touchpad-enabled true
 				fi
 	          	;;
@@ -70,7 +70,7 @@ touchpad () {
 				local enabled=$(xinput list-props $id | grep Device\ Enabled | awk '{print $4}')
 
 				if [[ $enabled -eq 0 ]]; then
-					msg "Intentando habilitar Touchpad (..)"
+					msg "Trying to enable Touchpad (..)"
 					xinput enable "$id"
 					xinput set-prop "$id" "Device Enabled" 1
 				fi
@@ -93,7 +93,7 @@ touchpad () {
 
 	# Parsear la linea GRUB_CMDLINE_LINUX_DEFAULT de /etc/default/grub en búsqueda de acpi=off por ejemplo
 	(grep GRUB_CMDLINE_LINUX_DEFAULT /etc/default/grub | egrep '(acpi=off|acpi_os=!)') >/dev/null 2>&1
-	[[ $? -eq 0 ]] && msg "ACPI fue deshabilitado: $(grep GRUB_CMDLINE_LINUX_DEFAULT /etc/default/grub)"
+	[[ $? -eq 0 ]] && msg "ACPI is disabled: $(grep GRUB_CMDLINE_LINUX_DEFAULT /etc/default/grub)"
 }
 
 # -- OK
@@ -111,7 +111,7 @@ sound () {
 	muted=$(pacmd list-sinks | awk '/muted/ { print $2 }')
 	
 	if [[ $muted == 'yes' ]]; then
-		msg "Audio: hay un dispositivo 'silenciado', solucionando (..)"
+		msg "Audio: there is a 'muted' sound device, solving now (..)"
 		amixer -c 0 set Master playback 100% unmute >/dev/null 2>&1
 		sleep 1
 		amixer sset Master unmute >/dev/null 2>&1
@@ -121,7 +121,7 @@ sound () {
 		muted=$(pacmd list-sinks | awk '/muted/ { print $2 }')
 		[[ $muted == 'no' ]] && msg "Audio: dispositivo de audio pudo ser 'unmuted' -OK"
 	else
-		msg "No hay dispositivo de audio 'muted' -OK" "v"
+		msg "No 'muted' devices -OK" "v"
 	fi	
 
 	# aplicar algo de esto?
@@ -150,17 +150,17 @@ performance () {
 	# menos de 4Gb libres en /
 	if [[ $free_space_root -le 4000000000 ]]; then 
 		free_space_root_h=${free_space_root_h/}
-		msg "Poco espacio ($free_space_root_h) en partición root"
+		msg "Poco espacio ($free_space_root_h) in root partition"
 	else
-		msg "$free_space_root_h libres en partición root" "v"
+		msg "$free_space_root_h free in root partition" "v"
 	fi	
 	
 	# Menos de 150Kb libres de RAM
 	if [[ $mem_ava -le 150000 ]]; then
-		msg "Memoria disponible insuficiente ($mem_ava kb)"
+    	msg "Insufficient available memory ($mem_ava kb)"
 	else
-		msg "$mem_ava kb de RAM disponible" "v"
-	fi	
+		msg "$mem_ava kb of RAM available" "v"
+	fi
 }
 
 
@@ -175,7 +175,7 @@ dns_check () {
 	fi
 
 	if [[ -z "$dnss_str" ]]; then 
-		msg "No se encontraron servidores DNS'"
+		msg "No DNS servers found"
 		return 1
 	else
 		explode "$dnss_str" $'\n' dnss
@@ -189,9 +189,10 @@ dns_ping () {
 		for dns in "${dnss[@]}"; do
 			
 			if [[ $(ping -c5 $dns | grep -o '[1-5] received' | cut -d' ' -f1) -eq 0 ]]; then
-				msg "    No hay conexion con el servidor DNS $dns"
+				msg "    No connection to the DNS server $dns"
+
 			else
-				 msg "    Conexion exitosa con el servidor DNS $dns -OK"
+				 msg "    Successful connection to the DNS server $dns -OK"
 				 dns_tested=true
 				 break
 			fi	 
@@ -212,16 +213,16 @@ ethernet ()
 	local downs=0
 	for interface in $interfaces; do
 		if [[ -z $(sudo ip address show $interface | grep "UP>") ]]; then
-			msg "Interfaz $interface está apagada, encendiendo (..)"
+			msg "Interface $interface is down, turning on (..)"
 			(( downs++ ))
 			sudo ip link set "$interface" up 2>/dev/null
-			[[ $? -ne 0 ]] && msg "Interfaz $interface no se pudo levantar"
+			[[ $? -ne 0 ]] && msg "Interface $interface could not be initialized"
 		fi
 	done	
 	
 	if [[ $downs -gt 0 ]]; then
 		if [[ ! -z $(systemctl list-unit-files | grep network-manager | grep enabled) ]]; then 
-			msg "    Re-iniciando NetworkManager (..)"
+			msg "    Restarting NetworkManager (..)"
 			sudo service network-manager restart
 			sleep 10
 		fi	
@@ -234,34 +235,34 @@ ethernet ()
 
 		if [[ $(sudo ip address show $interface | grep "LOWER_UP>") ]]; then
 			# Tiene IP
-			[[ -z $(ip address show $interface | grep "inet " | awk '{print $2}') ]] && msg "    No se encontro dirección IP para la interfaz: $interface" && (( errora++ ))
+			[[ -z $(ip address show $interface | grep "inet " | awk '{print $2}') ]] && msg "    IP address not found for the interface: $interface" && (( errora++ ))
 
 			# IP/CIDR
 			maskara=$(ip address show $interface | grep "inet " | awk '{print $2}') # Obtiene IP/CIDR
 			maskara=${maskara:(-2)} # Corta el string, dejando los dós digitos de la derecha
-			[[ maskara -eq 0 ]] && { msg "    No se encontro mascara de red para la interfaz: $interface" && (( errora++ )); }
+			[[ maskara -eq 0 ]] && { msg "    Subnet mask not found for the interface: $interface" && (( errora++ )); }
 
 			# Gateway
 			gateway=$(ip route show |grep default | awk '{print $3}' | cut -d$'\n' -f1)
-			[[ -z $gateway ]] && { msg "    No se encontro puerta de enlace para la interfaz: $interface"; return; }
+			[[ -z $gateway ]] && { msg "    Gateway not found for the interface: $interface"; return; }
 
 			# DNS
 			dns_check
 
 			# si errora es igual a 0 hace ping contra el router
 			if [[ $errora -eq 0 ]]; then
-				msg "    Probando conexion de $interface, espere..."
+				msg "    Testing $interface connection, please wait..."
 				
 				# Ping Gateway
 				myping=$(ping -c3 $gateway | grep "packets transmitted" | awk '{print $4}')
-				[[ myping -eq 0 ]] && msg "    No hay conexion con el router" || msg "    Conexion exitosa con el gw $gateway -OK"
+				[[ myping -eq 0 ]] && msg "    No connection with the router" || msg "    Connection to gw $gateway successful -OK"
 				
 				# Ping DNS
 				dns_ping
 			fi
 
 		else
-			msg "    Cable desconectado en interfaz: $interface"
+			msg "    Cable disconnected on interface: $interface"
 		fi
 	done
 }
@@ -294,12 +295,12 @@ wireless ()
 	# No hay driver en uso?
 	if [[ ! -z "$hardware" ]]; then
 		if [[ -z "$driver_en_uso" ]]; then
-			msg "Wireless USB: no hay driver para $hardware"
+			msg "Wireless USB: no driver for $hardware"
 		else
-			msg "Driver '$driver_en_uso' en uso para '$hardware' -OK" "v"
+			msg "Driver '$driver_en_uso' in use for '$hardware' -OK" "v"
 		fi
 	else
-		msg "Hardware para adaptador USB no detectado" "v"
+		msg "Hardware for USB adapter not detected" "v"
 	fi
 
 	# bloqueado ? desbloquear
@@ -309,19 +310,19 @@ wireless ()
 	local interfaces=$(cat /proc/net/dev | grep -o w[a-z0-9]*: | cut -d':' -f1)
 	local interfaces_up=$(cat /proc/net/wireless | awk '/:/  {print $1}' | cut -d':' -f1)
 
-	[[ "${#interfaces[@]}" -eq 0 ]] && msg "No se encontraron interfaces de red wireless"
+	[[ "${#interfaces[@]}" -eq 0 ]] && msg "No wireless network interfaces found"
 
 	local downs=0
 	local fails=0
 	for interface in $interfaces; do
-		msg "* Intefaz $interface\n"
+		msg "* Interface $interface\n"
 
 		in_array $interface interfaces_up
 		if [[ $? -ne 0 ]]; then
-			msg "    Interfaz $interface está apagada, encendiendo (..)"
+			msg "    Interface $interface is down, turning on (..)"
 			(( downs++ ))
 			sudo ip link set "$interface" up 2>/dev/null
-			[[ $? -ne 0 ]] && { ((fails++)) && msg "    Interfaz $interface no se pudo levantar"; }
+			[[ $? -ne 0 ]] && { ((fails++)) && msg "    Interface $interface could not be initialized"; }
 		fi
 	done	
 
@@ -329,7 +330,7 @@ wireless ()
 
 	if [[ $downs -gt 0 ]]; then
 		if [[ ! -z $(systemctl list-unit-files | grep network-manager | grep enable ) ]]; then
-			msg "    Re-iniciando NetworkManager (..)"
+			msg "    Rebooting NetworkManager (..)"
 			sudo service network-manager restart
 			sleep 10
 		fi	
@@ -341,34 +342,33 @@ wireless ()
 		errora=0
 		if [[ $(sudo ip address show $interface | grep "LOWER_UP>") ]]; then
 			# Tiene IP
-			[[ -z $(ip address show $interface | grep "inet " | awk '{print $2}') ]] && msg "    No se encontro dirección IP para la interfaz: $interface" && (( errora++ ))
+			[[ -z $(ip address show $interface | grep "inet " | awk '{print $2}') ]] && msg "    No IP address found for the interface: $interface" && (( errora++ ))
 
 			# IP/CIDR
-			maskara=$(ip address show $interface | grep "inet " | awk '{print $2}') # Obtiene IP/CIDR
-			maskara=${maskara:(-2)} # Corta el string, dejando los dós digitos de la derecha
-			[[ maskara -eq 0 ]] && { msg "    No se encontro mascara de red para la interfaz: $interface" && (( errora++ )); }
+			maskara=$(ip address show $interface | grep "inet " | awk '{print $2}') # Get IP/CIDR
+			maskara=${maskara:(-2)} # Truncate the string, leaving the last two digits
+			[[ maskara -eq 0 ]] && { msg "    No subnet mask found for the interface: $interface" && (( errora++ )); }
 
 			# Gateway
 			gateway=$(ip route show |grep default | awk '{print $3}' | cut -d$'\n' -f1)
-			[[ -z $gateway ]] && { msg "    No se encontro puerta de enlace para la interfaz: $interface"; return; }
+			[[ -z $gateway ]] && { msg "    No gateway found for the interface: $interface"; return; }
 
 			# DNS
 			dns_check
 
 			# si errora es igual a 0 hace ping contra router y DNS
 			if [[ $errora -eq 0 ]]; then
-				msg "    Probando conexion de $interface, espere..."
+				msg "    Testing connection of $interface, please wait..."
 
 				# Ping Gateway
 				myping=$(ping -c3 $gateway | grep "packets transmitted" | awk '{print $4}')
-				[[ $myping -eq 0 ]] && msg "    No hay conexion con el gw $gateway" || msg "    Conexion exitosa con el gw $gateway -OK"
+				[[ $myping -eq 0 ]] && msg "    No connection with gw $gateway" || msg "    Successful connection with gw $gateway -OK"
 				
 				# Ping DNS
 				dns_ping
 			fi
-
 		else
-			msg "    Sin conexión WiFi en: $interface"
+			msg "    No WiFi connection on: $interface"
 		fi
 	done
 }
@@ -477,17 +477,17 @@ rf () {
 
 			if [[ ! -z $has_soft_lock  ]]; then
 				if [[ -z $has_hard_lock ]]; then
-					msg "Un dispositivo $type (id=$id) bloqueado por soft, desbloqueando (..)"
-					rfkill unblock $id 2>/dev/null	
-					sleep 1	
+					msg "A $type device (id=$id) blocked by software, unlocking (..)"
+					rfkill unblock $id 2>/dev/null    
+					sleep 1    
 					if [[ ! -z $(rfkill list | grep -A 2 "$device" | grep -i 'Soft blocked: no') ]]; then 
-						msg "Dispositivo $type desbloqueado -OK"
+						msg "Device $type unlocked -OK"
 					else
-						msg "Dispositivo $type no pudo ser desbloqueado"
-					fi	
+						msg "Device $type could not be unlocked"
+					fi    
 				else
-					msg "Un dispositivo $type (id=$id) bloqueado por hard"
-				fi	
+					msg "A $type device (id=$id) blocked by hard"
+				fi    
 			fi
 		fi
 		i=$i+2
@@ -624,20 +624,20 @@ blacklist_check ()
 	echo -e "\n* $hardware\n"
 
 	if [[ ${#drivers} -eq 0 ]]; then
-		msg "    No hay drivers para $hardware"
+		msg "    No drivers found for $hardware"
 	else
-		msg "    Drivers instalados: $drivers_str para '$hardware'"
+		msg "    Installed drivers: $drivers_str para '$hardware'"
 	fi 
 
 	# No hay driver en uso?
 	if [[ -z "$driver_en_uso" ]]; then
-		msg "    No hay driver activo"
+		msg "    No active driver"
 		if [[ ${#drivers} -ne 0 ]]; then 
-			msg "    Cargando driver ${drivers[0]} (..)"
+			msg "    Loading driver ${drivers[0]} (..)"
 			sudo modprobe ${drivers[0]}
 		fi
 	else 
-		msg "    Driver en uso: $driver_en_uso' -OK" 		
+		msg "    Driver in use: $driver_en_uso' -OK" 		
 	fi
 
 	# Verifico que ningún driver esté blacklisted
@@ -648,7 +648,7 @@ blacklist_check ()
 	done	
 
 	if [[ $blacklisted -eq 0 ]]; then
-		msg "    No hay drivers en blacklist -OK" 
+		msg "    No drivers in blacklist -OK" 
 	else
 		local lista
 		[[ ${#blk[@]} -ne 0 ]] && lista="${blk[@]}" || lista='--'
@@ -660,7 +660,7 @@ blacklist_check ()
 
 
 key () {
-	echo -e "\nPresione Enter para continuar..."
+	echo -e "\nPress Enter to continue..."
 	read tecla
 }
 
@@ -669,17 +669,17 @@ menu () {
 	while :
 	do
 		clear
-		echo " Escoja una opción "
+		echo "Choose an option"
 		echo "==================="
-		echo "1. Verificar problemas de rendimiento"
-		echo "2. Verificar video"
-		echo "3. Verificar touchpad"
-		echo "4. Problemas con ethernet"
-		echo "5. Problemas con WiFi"
-		echo "6. Problemas con bluetooth"
-		echo "7. Problemas de sonido"
-		echo "8. Salir del programa"
-		echo -en "\nSeleccione una opción [1 - 8] "
+		echo "1. Check performance issues"
+		echo "2. Check video"
+		echo "3. Check touchpad"
+		echo "4. Ethernet issues"
+		echo "5. WiFi issues"
+		echo "6. Bluetooth issues"
+		echo "7. Sound issues"
+		echo "8. Exit the program"
+		echo -en "\nSelect an option [1 - 8] "
 		read opcion
 		echo
 			case $opcion in
@@ -706,7 +706,7 @@ menu () {
 				key;;
 			8) 	exit 0
 				key;;
-			*) 	echo "'$opcion' es una opción invalida."
+			*) 	echo "'$opcion' option is invalid."
 				key;;
 			esac
 		unset report[@] # Reinicia variable
@@ -721,7 +721,7 @@ options ()
 	Usage:
 	 $(basename $0) [-v] [-f] <options>
 
-	Display or solve hardware configuration issues
+	Display and try to solve hardware configuration issues
 
 	Options:
 	 -v, --verbose                  show detailed information
@@ -879,7 +879,7 @@ TEXT
 	esac
 }
 
-describe ; [[ -z $pkgm ]] && msg "Package management desconocido"
+describe ; [[ -z $pkgm ]] && msg "Unknown package management"
 blacklist
 
 
