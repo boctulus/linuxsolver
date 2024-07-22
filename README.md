@@ -1,31 +1,27 @@
 # linuxsolver
-Linux Solver - Herramienta de diagnóstico para Linux
+Linux Solver - Diagnostic Tool for Debian / Ubuntu Linux distros
 
-Programa de diagnóstico y solucionador de problemas de (configuración de) hardware escrito en Bash conformado por un conjunto de módulos que intentan responder preguntas (hipótesis) acerca de porque no funciona una pieza de hardware y busca de solucionarlos.
+A hardware configuration diagnostic and troubleshooting tool written in Bash. It consists of a set of modules that attempt to answer questions (hypotheses) about why a piece of hardware isn't working and seek to solve these issues.
 
+## Available Modules:
 
-Módulos disponibles:
+- performance
+- video
+- sound
+- bluetooth
+- wi-fi
+- ethernet
+- touchpad
 
-    performance
-    video
-    sound
-    bluetooth
-    wi-fi
-    ethernet
-    touchpad
+## Installation:
 
+```bash
+git clone https://github.com/boctulus/linuxsolver.git
+sudo ln -s $(pwd)/solver /usr/bin
+```
 
-Instalación:
+Usage:
 
-    git clone https://github.com/boctulus/linuxsolver.git
-    sudo ln -s $(pwd)/solver /usr/bin
-	
-
-
-Ejecución:
-
-	./solver
-	
-
-Se aceptan "pull requests". 
-
+```bash
+./solver
+```
