@@ -3,6 +3,10 @@ Linux Solver - Diagnostic Tool for Debian / Ubuntu Linux distros
 
 A hardware configuration diagnostic and troubleshooting tool written in Bash. It consists of a set of modules that attempt to answer questions (hypotheses) about why a piece of hardware isn't working and seek to solve these issues.
 
+## How it works
+
+It's a command tool utility. Just download.... give execution permission to the script and then run commands to diagnose and fix issues.
+
 ## Available Modules:
 
 - performance
